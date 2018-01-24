@@ -111,7 +111,7 @@ func tokenizer(input string) ([]string, error) {
 	return t, nil
 }
 
-func ReadStr(input string) (types.Data, error) {
+func ReadStr(input string) (*types.Data, error) {
 	tokens, err := tokenizer(input)
 	if err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func ReadStr(input string) (types.Data, error) {
 	return ReadForm(r)
 }
 
-func ReadForm(r *MalReader) (types.Data, error) {
+func ReadForm(r *MalReader) (*types.Data, error) {
 	t, ok := r.Peek()
 	if !ok {
 		return nil, fmt.Errorf("expected form, got EOF")
@@ -135,15 +135,15 @@ func ReadForm(r *MalReader) (types.Data, error) {
 	}
 }
 
-func readList(r *MalReader) (types.Data, error) {
+func readList(r *MalReader) (*types.Data, error) {
 	t, ok := r.Next() // Skip the opening (
-	ret := &types.DList{}
+	ret := []*types.Data{}
 	for t, ok = r.Peek(); t != ")" && ok; t, ok = r.Peek() {
 		f, err := ReadForm(r)
 		if err != nil {
 			return nil, err
 		}
-		ret.Members = append(ret.Members, f)
+		ret = append(ret, f)
 	}
 	if t != ")" {
 		return nil, fmt.Errorf("expected ')' but got EOF")
@@ -151,24 +151,25 @@ func readList(r *MalReader) (types.Data, error) {
 
 	// Found the ")"
 	r.Next() // Skip over it.
-	return ret, nil
+	return &types.Data{List: &ret}, nil
 }
 
-func readAtom(r *MalReader) (types.Data, error) {
+func readAtom(r *MalReader) (*types.Data, error) {
 	t, ok := r.Next()
 	if !ok {
 		return nil, fmt.Errorf("expected atom, got EOF")
 	}
 
 	if t[0] == '"' {
-		return &types.DString{t[1:len(t) - 1]}, nil
-	} else if t[0] == '-' || ('0' <= t[0] && t[0] <= '9') {
+		var s = t[1:len(t) - 1]
+		return &types.Data{String: &s}, nil
+	} else if (len(t) >= 2 && t[0] == '-' && '0' <= t[1] && t[1] <= '9') || ('0' <= t[0] && t[0] <= '9') {
 		n, err := strconv.Atoi(t)
 		if err != nil {
 			return nil, err
 		}
-		return &types.DNumber{n}, nil
+		return &types.Data{Number: &n}, nil
 	} else {
-		return &types.DSymbol{t}, nil
+		return &types.Data{Symbol: &t}, nil
 	}
 }

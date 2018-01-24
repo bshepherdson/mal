@@ -1,20 +1,9 @@
 package types
 
-type Data interface {
-}
-
-type DList struct {
-	Members []Data
-}
-
-type DString struct {
-	Str string
-}
-
-type DNumber struct {
-	Num int
-}
-
-type DSymbol struct {
-	Name string
+type Data struct {
+	List  *[]*Data
+	String *string
+	Symbol *string
+	Number *int
+	Native func(args []*Data) (*Data, error)
 }
