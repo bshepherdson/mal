@@ -3,64 +3,41 @@ package main
 import (
 	"fmt"
 	"strings"
-)
 
-import (
 	"printer"
 	"reader"
 	"readline"
-	. "types"
+	"types"
 )
 
-// read
-func READ(str string) (MalType, error) {
-	return reader.Read_str(str)
+func Read(raw string) (types.Data, error) {
+	return reader.ReadStr(raw)
 }
 
-// eval
-func EVAL(ast MalType, env string) (MalType, error) {
-	return ast, nil
+func Eval(form types.Data) types.Data {
+	return form
 }
 
-// print
-func PRINT(exp MalType) (string, error) {
-	return printer.Pr_str(exp, true), nil
+func Print(form types.Data) string {
+	return printer.PrintStr(form, true)
 }
 
-// repl
-func rep(str string) (MalType, error) {
-	var exp MalType
-	var res string
-	var e error
-	if exp, e = READ(str); e != nil {
-		return nil, e
+func rep(input string) string {
+	form, err := Read(input)
+	if err != nil {
+		return fmt.Sprintf("%v", err)
 	}
-	if exp, e = EVAL(exp, ""); e != nil {
-		return nil, e
-	}
-	if res, e = PRINT(exp); e != nil {
-		return nil, e
-	}
-	return res, nil
+
+	return Print(Eval(form))
 }
 
 func main() {
-	// repl loop
 	for {
-		text, err := readline.Readline("user> ")
-		text = strings.TrimRight(text, "\n")
+		line, err := readline.Readline("user> ")
 		if err != nil {
-			return
+			break
 		}
-		var out MalType
-		var e error
-		if out, e = rep(text); e != nil {
-			if e.Error() == "<empty line>" {
-				continue
-			}
-			fmt.Printf("Error: %v\n", e)
-			continue
-		}
-		fmt.Printf("%v\n", out)
+		line = strings.TrimRight(line, "\n")
+		fmt.Println(rep(line))
 	}
 }

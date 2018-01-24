@@ -1,220 +1,174 @@
 package reader
 
-import (
-	"errors"
-	"regexp"
-	"strconv"
-	"strings"
-	//"fmt"
-)
+import "fmt"
+import "strconv"
+import "types"
 
-import (
-	. "types"
-)
-
-type Reader interface {
-	next() *string
-	peek() *string
+type MalReader struct {
+	tokens []string
+	index int
 }
 
-type TokenReader struct {
-	tokens   []string
-	position int
+func (r *MalReader) Next() (string, bool) {
+	t, ok := r.Peek()
+	if !ok {
+		return t, false
+	}
+
+	r.index++
+	return t, true
 }
 
-func (tr *TokenReader) next() *string {
-	if tr.position >= len(tr.tokens) {
-		return nil
+func (r *MalReader) Peek() (string, bool) {
+	if r.index >= len(r.tokens) {
+		return "EOF", false
 	}
-	token := tr.tokens[tr.position]
-	tr.position = tr.position + 1
-	return &token
+	return r.tokens[r.index], true
 }
 
-func (tr *TokenReader) peek() *string {
-	if tr.position >= len(tr.tokens) {
-		return nil
+func tokenizer(input string) ([]string, error) {
+	//fmt.Printf("tokenizer input: \"%s\"\n", input)
+	t := make([]string, 0, 16)
+	for pos := 0; pos < len(input); {
+		c := input[pos]
+		switch c {
+		case ' ', '\t', ',':
+			pos++
+			continue // Whitespace and commas are skipped.
+
+		case '~':
+			if input[pos+1] == '@' { // ~@ is a thing
+				t = append(t, "~@")
+				pos += 2
+			} else {
+				t = append(t, "~") // so is just ~
+				pos++
+			}
+
+		case '[', ']', '{', '}', '(', ')', '\'', '`', '^', '@':
+			t = append(t, string(c))
+			pos++
+
+		case '"': // Quoted strings as one character.
+			wasSlash := false
+			foundEnd := false
+			out := []byte{'"'}
+			for end := pos + 1; end < len(input); end++ {
+				if !wasSlash && input[end] == '"' {
+					foundEnd = true
+					out = append(out, '"')
+					t = append(t, string(out))
+					pos = end + 1
+					break
+				}
+
+				if wasSlash {
+					if input[end] == 'n' {
+						out = append(out, '\n')
+					} else if input[end] == '"' {
+						out = append(out, '"')
+					} else if input[end] == '\\' {
+						out = append(out, '\\')
+					} else {
+						out = append(out, input[end])
+					}
+					wasSlash = false
+				} else {
+					if input[end] == '\\' {
+						wasSlash = true
+					} else {
+						out = append(out, input[end])
+					}
+				}
+			}
+
+			if !foundEnd {
+				return nil, fmt.Errorf("expected '\"', got EOF")
+			}
+
+		case ';': // Captures the rest of the line as a comment token.
+			t = append(t, input[pos:])
+			return t, nil
+
+		default:
+			// Keep going until we see something special.
+			end := pos + 1
+			nonspec_loop: for end < len(input) {
+				ce := input[end]
+				switch ce {
+				case ' ', '\t', ',', '(', ')', '[', ']', '{', '}', '~', '\'', '"', '@', '^', '`':
+					//fmt.Printf("Breaking, found %c at %d\n", ce, end)
+					break nonspec_loop
+				}
+				end++
+			}
+			s := input[pos:end]
+			//fmt.Printf("Nonspecial, found (%d, %d) \"%s\"\n", pos, end, s)
+			t = append(t, s)
+			pos = end
+		}
 	}
-	return &tr.tokens[tr.position]
+	return t, nil
 }
 
-func tokenize(str string) []string {
-	results := make([]string, 0, 1)
-	// Work around lack of quoting in backtick
-	re := regexp.MustCompile(`[\s,]*(~@|[\[\]{}()'` + "`" +
-		`~^@]|"(?:\\.|[^\\"])*"|;.*|[^\s\[\]{}('"` + "`" +
-		`,;)]*)`)
-	for _, group := range re.FindAllStringSubmatch(str, -1) {
-		if (group[1] == "") || (group[1][0] == ';') {
-			continue
-		}
-		results = append(results, group[1])
+func ReadStr(input string) (types.Data, error) {
+	tokens, err := tokenizer(input)
+	if err != nil {
+		return nil, err
 	}
-	return results
+
+	r := &MalReader{tokens, 0}
+	return ReadForm(r)
 }
 
-func read_atom(rdr Reader) (MalType, error) {
-	token := rdr.next()
-	if token == nil {
-		return nil, errors.New("read_atom underflow")
-	}
-	if match, _ := regexp.MatchString(`^-?[0-9]+$`, *token); match {
-		var i int
-		var e error
-		if i, e = strconv.Atoi(*token); e != nil {
-			return nil, errors.New("number parse error")
-		}
-		return i, nil
-	} else if (*token)[0] == '"' {
-		str := (*token)[1 : len(*token)-1]
-		return strings.Replace(
-			strings.Replace(
-			 strings.Replace(
-			  strings.Replace(str, `\\`, "\u029e", -1),
-			  `\"`, `"`, -1),
-			 `\n`, "\n", -1),
-			"\u029e", "\\", -1), nil
-	} else if (*token)[0] == ':' {
-		return NewKeyword((*token)[1:len(*token)])
-	} else if *token == "nil" {
-		return nil, nil
-	} else if *token == "true" {
-		return true, nil
-	} else if *token == "false" {
-		return false, nil
-	} else {
-		return Symbol{*token}, nil
-	}
-	return token, nil
-}
-
-func read_list(rdr Reader, start string, end string) (MalType, error) {
-	token := rdr.next()
-	if token == nil {
-		return nil, errors.New("read_list underflow")
-	}
-	if *token != start {
-		return nil, errors.New("expected '" + start + "'")
+func ReadForm(r *MalReader) (types.Data, error) {
+	t, ok := r.Peek()
+	if !ok {
+		return nil, fmt.Errorf("expected form, got EOF")
 	}
 
-	ast_list := []MalType{}
-	token = rdr.peek()
-	for ; true; token = rdr.peek() {
-		if token == nil {
-			return nil, errors.New("exepected '" + end + "', got EOF")
-		}
-		if *token == end {
-			break
-		}
-		f, e := read_form(rdr)
-		if e != nil {
-			return nil, e
-		}
-		ast_list = append(ast_list, f)
-	}
-	rdr.next()
-	return List{ast_list, nil}, nil
-}
-
-func read_vector(rdr Reader) (MalType, error) {
-	lst, e := read_list(rdr, "[", "]")
-	if e != nil {
-		return nil, e
-	}
-	vec := Vector{lst.(List).Val, nil}
-	return vec, nil
-}
-
-func read_hash_map(rdr Reader) (MalType, error) {
-	mal_lst, e := read_list(rdr, "{", "}")
-	if e != nil {
-		return nil, e
-	}
-	return NewHashMap(mal_lst)
-}
-
-func read_form(rdr Reader) (MalType, error) {
-	token := rdr.peek()
-	if token == nil {
-		return nil, errors.New("read_form underflow")
-	}
-	switch *token {
-
-	case `'`:
-		rdr.next()
-		form, e := read_form(rdr)
-		if e != nil {
-			return nil, e
-		}
-		return List{[]MalType{Symbol{"quote"}, form}, nil}, nil
-	case "`":
-		rdr.next()
-		form, e := read_form(rdr)
-		if e != nil {
-			return nil, e
-		}
-		return List{[]MalType{Symbol{"quasiquote"}, form}, nil}, nil
-	case `~`:
-		rdr.next()
-		form, e := read_form(rdr)
-		if e != nil {
-			return nil, e
-		}
-		return List{[]MalType{Symbol{"unquote"}, form}, nil}, nil
-	case `~@`:
-		rdr.next()
-		form, e := read_form(rdr)
-		if e != nil {
-			return nil, e
-		}
-		return List{[]MalType{Symbol{"splice-unquote"}, form}, nil}, nil
-	case `^`:
-		rdr.next()
-		meta, e := read_form(rdr)
-		if e != nil {
-			return nil, e
-		}
-		form, e := read_form(rdr)
-		if e != nil {
-			return nil, e
-		}
-		return List{[]MalType{Symbol{"with-meta"}, form, meta}, nil}, nil
-	case `@`:
-		rdr.next()
-		form, e := read_form(rdr)
-		if e != nil {
-			return nil, e
-		}
-		return List{[]MalType{Symbol{"deref"}, form}, nil}, nil
-
-	// list
-	case ")":
-		return nil, errors.New("unexpected ')'")
+	switch t {
 	case "(":
-		return read_list(rdr, "(", ")")
-
-	// vector
-	case "]":
-		return nil, errors.New("unexpected ']'")
-	case "[":
-		return read_vector(rdr)
-
-	// hash-map
-	case "}":
-		return nil, errors.New("unexpected '}'")
-	case "{":
-		return read_hash_map(rdr)
+		return readList(r)
 	default:
-		return read_atom(rdr)
+		return readAtom(r)
 	}
-	return read_atom(rdr)
 }
 
-func Read_str(str string) (MalType, error) {
-	var tokens = tokenize(str)
-	if len(tokens) == 0 {
-		return nil, errors.New("<empty line>")
+func readList(r *MalReader) (types.Data, error) {
+	t, ok := r.Next() // Skip the opening (
+	ret := &types.DList{}
+	for t, ok = r.Peek(); t != ")" && ok; t, ok = r.Peek() {
+		f, err := ReadForm(r)
+		if err != nil {
+			return nil, err
+		}
+		ret.Members = append(ret.Members, f)
+	}
+	if t != ")" {
+		return nil, fmt.Errorf("expected ')' but got EOF")
 	}
 
-	return read_form(&TokenReader{tokens: tokens, position: 0})
+	// Found the ")"
+	r.Next() // Skip over it.
+	return ret, nil
+}
+
+func readAtom(r *MalReader) (types.Data, error) {
+	t, ok := r.Next()
+	if !ok {
+		return nil, fmt.Errorf("expected atom, got EOF")
+	}
+
+	if t[0] == '"' {
+		return &types.DString{t[1:len(t) - 1]}, nil
+	} else if t[0] == '-' || ('0' <= t[0] && t[0] <= '9') {
+		n, err := strconv.Atoi(t)
+		if err != nil {
+			return nil, err
+		}
+		return &types.DNumber{n}, nil
+	} else {
+		return &types.DSymbol{t}, nil
+	}
 }
