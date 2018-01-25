@@ -32,7 +32,7 @@ func tokenizer(input string) ([]string, error) {
 	for pos := 0; pos < len(input); {
 		c := input[pos]
 		switch c {
-		case ' ', '\t', ',':
+		case ' ', '\r', '\n', '\t', ',':
 			pos++
 			continue // Whitespace and commas are skipped.
 
@@ -87,8 +87,17 @@ func tokenizer(input string) ([]string, error) {
 			}
 
 		case ';': // Captures the rest of the line as a comment token.
-			t = append(t, input[pos:])
-			return t, nil
+			end := pos + 1
+			for ; end < len(input); end++ {
+				if input[end] == '\n' {
+					pos = end
+					break
+				}
+			}
+
+			if end == len(input) {
+				return t, nil
+			}
 
 		default:
 			// Keep going until we see something special.

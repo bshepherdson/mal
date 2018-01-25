@@ -41,6 +41,10 @@ func PrintStr(d *types.Data, readable bool) string {
 		return "#<function>"
 	}
 
+	if d.Atom != nil {
+		return "(atom " + PrintStr(d.Atom, readable) + ")"
+	}
+
 	if d.Special != 0 {
 		if d == types.Nil {
 			return "nil"

@@ -2,6 +2,7 @@ package types
 
 type Data struct {
 	List  *[]*Data
+	Atom  *Data
 	String *string
 	Symbol *string
 	Special int
