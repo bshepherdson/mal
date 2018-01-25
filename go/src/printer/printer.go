@@ -20,8 +20,9 @@ func PrintStr(d *types.Data, readable bool) string {
 			s = strings.Replace(s, "\\", "\\\\", -1)
 			s = strings.Replace(s, "\n", "\\n", -1)
 			s = strings.Replace(s, "\"", "\\\"", -1)
+			return "\"" + s + "\""
 		}
-		return "\"" + s + "\""
+		return s
 	}
 
 	if d.Number != nil {
@@ -34,6 +35,20 @@ func PrintStr(d *types.Data, readable bool) string {
 
 	if d.Native != nil {
 		return "<native function>"
+	}
+
+	if d.Closure != nil {
+		return "#<function>"
+	}
+
+	if d.Special != 0 {
+		if d == types.Nil {
+			return "nil"
+		} else if d == types.True {
+			return "true"
+		} else if d == types.False {
+			return "false"
+		}
 	}
 
 	panic(fmt.Sprintf("Unknown Data type: %v", d))

@@ -169,6 +169,12 @@ func readAtom(r *MalReader) (*types.Data, error) {
 			return nil, err
 		}
 		return &types.Data{Number: &n}, nil
+	} else if t == "nil" {
+		return types.Nil, nil
+	} else if t == "true" {
+		return types.True, nil
+	} else if t == "false" {
+		return types.False, nil
 	} else {
 		return &types.Data{Symbol: &t}, nil
 	}
