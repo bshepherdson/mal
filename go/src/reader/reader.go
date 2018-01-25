@@ -137,11 +137,33 @@ func ReadForm(r *MalReader) (*types.Data, error) {
 	}
 
 	switch t {
+	case "'":
+		return nextWrapped(r, "quote")
+	case "`":
+		return nextWrapped(r, "quasiquote")
+	case "~":
+		return nextWrapped(r, "unquote")
+	case "~@":
+		return nextWrapped(r, "splice-unquote")
 	case "(":
 		return readList(r)
 	default:
 		return readAtom(r)
 	}
+}
+
+func nextWrapped(r *MalReader, wrapper string) (*types.Data, error) {
+	r.Next()
+	next, err := ReadForm(r) // Read the next form.
+	if err != nil {
+		return nil, err
+	}
+
+	list := []*types.Data{
+		&types.Data{Symbol: &wrapper},
+		next,
+	}
+	return &types.Data{List: &list}, nil
 }
 
 func readList(r *MalReader) (*types.Data, error) {
