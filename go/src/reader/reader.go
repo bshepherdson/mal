@@ -6,7 +6,7 @@ import "types"
 
 type MalReader struct {
 	tokens []string
-	index int
+	index  int
 }
 
 func (r *MalReader) Next() (string, bool) {
@@ -102,10 +102,11 @@ func tokenizer(input string) ([]string, error) {
 		default:
 			// Keep going until we see something special.
 			end := pos + 1
-			nonspec_loop: for end < len(input) {
+		nonspec_loop:
+			for end < len(input) {
 				ce := input[end]
 				switch ce {
-				case ' ', '\t', ',', '(', ')', '[', ']', '{', '}', '~', '\'', '"', '@', '^', '`':
+				case ' ', '\t', '\n', ',', '(', ')', '[', ']', '{', '}', '~', '\'', '"', '@', '^', '`':
 					//fmt.Printf("Breaking, found %c at %d\n", ce, end)
 					break nonspec_loop
 				}
@@ -192,7 +193,7 @@ func readAtom(r *MalReader) (*types.Data, error) {
 	}
 
 	if t[0] == '"' {
-		var s = t[1:len(t) - 1]
+		var s = t[1 : len(t)-1]
 		return &types.Data{String: &s}, nil
 	} else if (len(t) >= 2 && t[0] == '-' && '0' <= t[1] && t[1] <= '9') || ('0' <= t[0] && t[0] <= '9') {
 		n, err := strconv.Atoi(t)

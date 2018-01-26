@@ -16,6 +16,7 @@ type Closure struct {
 	Params []string   // All the positional parameters.
 	TailParams string // The tail parameter, after the &, if any.
 	Body *Data
+	IsMacro bool
 }
 
 const (
