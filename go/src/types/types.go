@@ -1,22 +1,22 @@
 package types
 
 type Data struct {
-	List  *[]*Data
-	Atom  *Data
-	String *string
-	Symbol *string
+	List    *[]*Data
+	Atom    *Data
+	String  *string
+	Symbol  *string
 	Special int
-	Number *int
-	Native func(args []*Data) (*Data, error)
+	Number  *int
+	Native  func(args []*Data) *Data
 	Closure *Closure
 }
 
 type Closure struct {
-	Env *Env
-	Params []string   // All the positional parameters.
-	TailParams string // The tail parameter, after the &, if any.
-	Body *Data
-	IsMacro bool
+	Env        *Env
+	Params     []string // All the positional parameters.
+	TailParams string   // The tail parameter, after the &, if any.
+	Body       *Data
+	IsMacro    bool
 }
 
 const (
@@ -25,8 +25,6 @@ const (
 	specialFalse
 )
 
-
 var Nil = &Data{Special: specialNil}
 var True = &Data{Special: specialTrue}
 var False = &Data{Special: specialFalse}
-

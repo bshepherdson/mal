@@ -2,7 +2,7 @@ package reader
 
 import "fmt"
 import "strconv"
-import "types"
+import . "types"
 
 type MalReader struct {
 	tokens []string
@@ -121,20 +121,22 @@ func tokenizer(input string) ([]string, error) {
 	return t, nil
 }
 
-func ReadStr(input string) (*types.Data, error) {
+func ReadStr(input string) *Data {
 	tokens, err := tokenizer(input)
 	if err != nil {
-		return nil, err
+		msg := fmt.Sprintf("tokenization error: %v", err)
+		return Throw(&Data{String: &msg})
 	}
 
 	r := &MalReader{tokens, 0}
 	return ReadForm(r)
 }
 
-func ReadForm(r *MalReader) (*types.Data, error) {
+func ReadForm(r *MalReader) *Data {
 	t, ok := r.Peek()
 	if !ok {
-		return nil, fmt.Errorf("expected form, got EOF")
+		msg := "expected form, got EOF"
+		return Throw(&Data{String: &msg})
 	}
 
 	switch t {
@@ -153,61 +155,64 @@ func ReadForm(r *MalReader) (*types.Data, error) {
 	}
 }
 
-func nextWrapped(r *MalReader, wrapper string) (*types.Data, error) {
+func nextWrapped(r *MalReader, wrapper string) *Data {
 	r.Next()
-	next, err := ReadForm(r) // Read the next form.
-	if err != nil {
-		return nil, err
+	next := ReadForm(r) // Read the next form.
+	if HasError() {
+		return nil
 	}
 
-	list := []*types.Data{
-		&types.Data{Symbol: &wrapper},
+	list := []*Data{
+		&Data{Symbol: &wrapper},
 		next,
 	}
-	return &types.Data{List: &list}, nil
+	return &Data{List: &list}
 }
 
-func readList(r *MalReader) (*types.Data, error) {
+func readList(r *MalReader) *Data {
 	t, ok := r.Next() // Skip the opening (
-	ret := []*types.Data{}
+	ret := []*Data{}
 	for t, ok = r.Peek(); t != ")" && ok; t, ok = r.Peek() {
-		f, err := ReadForm(r)
-		if err != nil {
-			return nil, err
+		f := ReadForm(r)
+		if HasError() {
+			return nil
 		}
 		ret = append(ret, f)
 	}
 	if t != ")" {
-		return nil, fmt.Errorf("expected ')' but got EOF")
+		msg := "expected ')' but got EOF"
+		return Throw(&Data{String: &msg})
 	}
 
 	// Found the ")"
 	r.Next() // Skip over it.
-	return &types.Data{List: &ret}, nil
+	return &Data{List: &ret}
 }
 
-func readAtom(r *MalReader) (*types.Data, error) {
+func readAtom(r *MalReader) *Data {
 	t, ok := r.Next()
 	if !ok {
-		return nil, fmt.Errorf("expected atom, got EOF")
+		msg := "expected atom, got EOF"
+		return Throw(&Data{String: &msg})
 	}
 
 	if t[0] == '"' {
 		var s = t[1 : len(t)-1]
-		return &types.Data{String: &s}, nil
+		return &Data{String: &s}
 	} else if (len(t) >= 2 && t[0] == '-' && '0' <= t[1] && t[1] <= '9') || ('0' <= t[0] && t[0] <= '9') {
 		n, err := strconv.Atoi(t)
 		if err != nil {
-			return nil, err
+			msg := "badly formatted number"
+			return Throw(&Data{String: &msg})
 		}
-		return &types.Data{Number: &n}, nil
+		return &Data{Number: &n}
 	} else if t == "nil" {
-		return types.Nil, nil
+		return Nil
 	} else if t == "true" {
-		return types.True, nil
+		return True
 	} else if t == "false" {
-		return types.False, nil
+		return False
 	} else {
-		return &types.Data{Symbol: &t}, nil
+		return &Data{Symbol: &t}
 	}
 }

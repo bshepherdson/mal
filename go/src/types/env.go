@@ -3,7 +3,7 @@ package types
 import "fmt"
 
 type Env struct {
-	data map[string]*Data
+	data  map[string]*Data
 	outer *Env
 }
 
@@ -35,10 +35,11 @@ func (e *Env) Find(key string) *Data {
 	return nil
 }
 
-func (e *Env) Get(key string) (*Data, error) {
+func (e *Env) Get(key string) *Data {
 	value := e.Find(key)
 	if value == nil {
-		return nil, fmt.Errorf("not found: '%s'", key)
+		s := fmt.Sprintf("not found: '%s'", key)
+		return Throw(&Data{String: &s})
 	}
-	return value, nil
+	return value
 }
