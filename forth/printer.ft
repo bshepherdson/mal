@@ -9,10 +9,13 @@ VARIABLE print-readably?
 \ Like EMIT; a pun on "prnch".
 : pinch    ( ch -- ) >prn @ c!   1 chars >prn +! ;
 \ Raw string print.
-: prn-type ( c-addr u -- ) 0 DO dup c@ pinch   char+ LOOP drop ;
+: prn-type ( c-addr u -- ) 0 ?DO dup c@ pinch   char+ LOOP drop ;
 
 : prn0 ( -- ) print-buffer >prn ! ;
 : prn>str ( -- c-addr u ) print-buffer >prn @ over - ;
 
 : pr-str ( value -- c-addr u ) prn0 (pr-str) prn>str ;
+
+
+:noname S" nil" prn-type ; %nil method-of (pr-str)
 

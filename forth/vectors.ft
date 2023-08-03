@@ -34,7 +34,7 @@ CREATE empty-vector %vector , 0 ,
   over atv              ( v2 'slot        R: value )
   R> swap !             ( v2 ) ;
 
-40 CONSTANT err-indexv
+5 CONSTANT err-indexv
 
 \ Throws if the index is out of range. Does nothing otherwise.
 : ?indexv ( index vector -- index vector ) 2dup countv >= err-indexv and throw ;
@@ -44,5 +44,5 @@ CREATE empty-vector %vector , 0 ,
 \ Printer for vectors.
 :noname ( vector -- )
   [CHAR] [ pinch
-  dup countv 0 DO i IF space THEN   i over getv (pr-str) LOOP drop
+  dup countv 0 ?DO i IF space THEN   i over getv (pr-str) LOOP drop
   [CHAR] ] pinch ; %vector method-of (pr-str)

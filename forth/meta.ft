@@ -7,7 +7,7 @@
 \ Then you can set the implementation for a particular type like this:
 \   :noname ... ; %string method-of pr-str    ok
 
-41 CONSTANT err-no-impl
+1 CONSTANT err-no-impl
 
 \ This is the default implementation - it prints an error using the name token.
 : (no-impl) ( mal-value body -- )

@@ -4,12 +4,14 @@ REQUIRE printer.ft
 REQUIRE vectors.ft
 REQUIRE lists.ft
 REQUIRE strings.ft
+REQUIRE numbers.ft
 REQUIRE reader.ft
+REQUIRE errors.ft
 
 \ REPL =======================================================================
-: READ  ( c-addr u -- c-addr u ) ;
-: EVAL  ( c-addr u -- c-addr u ) ;
-: PRINT ( c-addr u -- c-addr u ) ;
+: READ  ( c-addr u -- form )     read-str-raw ;
+: EVAL  ( form     -- form )     ;
+: PRINT ( form     -- c-addr u ) pr-str ;
 : rep ( c-addr u -- c-addr u ) READ EVAL PRINT ;
 
 \ Main loop ==================================================================
@@ -23,6 +25,7 @@ REQUIRE reader.ft
 \     dup emit
 \     over c!   char+
 \   AGAIN ;
+CREATE input 256 chars allot align
 
 : mal-accept ( c-addr u -- +n good? ) stdin read-line throw ;
 
@@ -30,6 +33,7 @@ REQUIRE reader.ft
   BEGIN
     ." user> "   input 255 mal-accept
   WHILE ( len )
-    input swap rep TYPE cr
+    input swap   ['] rep catch   ?dup IF error. ELSE type THEN cr
   REPEAT ;
 
+main bye

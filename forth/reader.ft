@@ -1,5 +1,6 @@
 \ Reader functions
 
+\ Reader bookkeeping =========================================================
 \ The current reader's state. This points to three cells:
 \ [ token-len | c-addr | remaining-length ]
 \ The first two form a Forth string for the current token, in 2@ order.
@@ -21,16 +22,18 @@ VARIABLE reader
   negate reader @ reader>tail   +! ;
 
 : eol? ( -- ? ) reader @ reader>tail @ 0= ;
+: read-end ( -- c-addr ) >reader   reader @ reader>tail @   + ;
 
+
+\ Scanning and tokenization ==================================================
 : char-match ( c-addr u "name" --     X: ch -- ? )
     CREATE   dup c, 0 DO dup i + c@ c, LOOP drop align
   DOES> ( ch 'counted )
-    count over + swap DO ( ch )
-      i c@ over = IF drop true UNLOOP EXIT THEN
+    count over + swap DO ( ch ) i c@ over = IF drop true UNLOOP EXIT THEN
     LOOP drop false ;
 
 
-:noname S\"  \t\n\r"    ; execute char-match space?
+:noname S\"  \t\n\r,"   ; execute char-match space?
 :noname S" [](){}'`~^@" ; execute char-match singleton?
 :noname S\" ;,\q"       ; execute char-match non-symbol?
 
@@ -42,17 +45,19 @@ VARIABLE reader
 
 VARIABLE backslash?
 
-42 CONSTANT err-malformed-string
+2 CONSTANT err-malformed-string
 
 : end-token ( c-addr -- ) >reader - ( len ) reader @ reader>len ! ;
 
 : string-token ( -- )
-  >reader BEGIN
+  backslash? off
+  >reader char+ BEGIN \ Skip the initial quote
     dup c@ [char] \ = IF true backslash? !   char+ THEN
     dup c@ [char] " =   backslash? @ 0= and IF \ Real end of string
       char+ ( after-quote ) end-token
       EXIT THEN
-    eol? IF err-malformed-string throw THEN
+    dup read-end >= IF err-malformed-string throw THEN
+    backslash? off
     char+ \ Just keep advancing.
   AGAIN ;
 
@@ -101,4 +106,72 @@ VARIABLE backslash?
 
 : dump-tokens ( -- )
   cr BEGIN eol? 0= WHILE ." token: _" token+ type ." _" cr REPEAT cr ;
+
+
+\ Reading Lisp values ========================================================
+DEFER read-form
+
+3 CONSTANT err-malformed-list
+4 CONSTANT err-malformed-number
+
+\ This non-tail recurses so that the return list can be generated correctly.
+\ The current token is loaded and should be consumed. EOL is an error, ) should
+\ return empty-list.
+: read-list ( -- value )
+  eol? IF err-malformed-list throw THEN
+  token drop c@ [char] ) = IF +token empty-list EXIT THEN
+  \ Otherwise, read a whole form, then recurse and cons them together.
+  read-form recurse cons ;
+
+\ -- Token readers ===========================================================
+\ Strip off the quotes and return as a string.
+\ TODO: Handle escaping - the backslashes should be dropped as it's copied in.
+: read-str-lit ( c-addr u -- string ) 1 /string 1- >string ;
+
+\ Inner number reader - parse using Forth's machinery, throw if not clean.
+: (read-number) ( c-addr u -- number|0 )
+  0 0 2swap >number ( ud c-addr u ) IF \ Incomplete parse!
+    drop 2drop 0 ELSE drop ( ud ) D>S number +token THEN ;
+
+\ Starts out pointing at the 0x part. Skip that, then parse with base 16.
+: read-hex     ( c-addr u -- number|0 )
+  2 /string   base @ >R   hex      (read-number)   R> base ! ;
+: read-binary  ( c-addr u -- number|0 )
+  2 /string   base @ >R   2 base ! (read-number)   R> base ! ;
+
+\ TODO: Negatives and unary +
+: read-decimal ( c-addr u -- number|0 ) (read-number) ;
+
+\ Starts pointing at : but that's not part of the string, so move past it.
+: read-keyword ( c-addr u -- keyword ) +token   1 /string >keyword ;
+
+\ TODO: Various reader macros like @, ' and ~
+: read-atom ( -- value )
+  \ First check the things with obvious prefixes, like strings and keywords.
+  token over c@ ( c-addr u ch )
+  dup [char] " = IF drop read-str-lit EXIT THEN
+  dup [char] : = IF drop read-keyword EXIT THEN
+  \ Numbers start with 0x or 0b, a digit, or -
+  [char] 0 = IF ( c-addr u )
+    dup 1 > IF \ If longer than 1 character, check for 0x and 0b prefixes.
+      over char+ c@ ( c-addr u ch1 )
+      dup [char] x = over [char] X = or IF drop read-hex EXIT THEN
+      dup [char] b = swap [char] B = or IF read-binary   EXIT THEN
+    THEN
+    read-decimal EXIT THEN
+  \ If we're still here, it might be a number that doesn't start with 0, or a symbol.
+  \ Try to parse the entire token as a number using Forth's machinery. ( c-addr u )
+  read-decimal ?dup IF ( value ) EXIT THEN ( )
+  \ If we're still here, it's a symbol.
+  token+ >symbol ;
+
+
+\ Peeks the token to check if it starts with ( and calls read-list or read-atom.
+:noname ( -- value )
+  eol? IF nil EXIT THEN
+  token drop c@ [char] ( = IF +token read-list ELSE read-atom THEN ;
+IS read-form
+
+
+: read-str-raw ( c-addr u -- value ) tokenize read-form ;
 

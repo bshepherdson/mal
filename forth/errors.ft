@@ -1,0 +1,15 @@
+
+: msg-no-impl          ." INTERNAL ERROR" ;
+: msg-malformed-string ." expected '" [char] " emit ." ', got EOF" ;
+: msg-malformed-list   ." expected ')', got EOF" ;
+: msg-malformed-number ." broken number literal" ;
+: msg-indexv           ." vector index out of bounds" ;
+
+CREATE error-printers
+  ' msg-no-impl          ,
+  ' msg-malformed-string ,
+  ' msg-malformed-list   ,
+  ' msg-malformed-number ,
+  ' msg-indexv           ,
+
+: error. ( 1-based-err# -- ) 1- cells error-printers + @ execute cr ;

@@ -16,3 +16,19 @@
 \ Symbols are stored like strings but with a different type.
 :noname ( symbol -- ) s>str prn-type ; %symbol method-of (pr-str)
 
+\ Likewise keywords are stored as strings (without their colon)
+\ TODO: Intern keywords as intended!
+:noname ( keyword -- ) [char] : pinch   s>str prn-type ; %keyword method-of (pr-str)
+
+\ Constructors ===============================================================
+: (>stringy) ( c-addr u %type -- value )
+  over 2 cells + aligned allocate throw >R
+  R@ !                \ Write the type ( c-addr u   R: value )
+  dup R@ s>len !      \ And the length ( c-addr u   R: value )
+  R@ s>data swap move \ Copy the contents ( R: value )
+  R> ;
+
+: >symbol  ( c-addr u -- symbol ) %symbol  (>stringy) ;
+: >string  ( c-addr u -- string ) %string  (>stringy) ;
+: >keyword ( c-addr u -- keyword) %keyword (>stringy) ;
+
