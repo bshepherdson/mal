@@ -1,0 +1,47 @@
+\ Lists library for general Forths.
+\ A list is either NIL or a three-cell ALLOCATEd block containing
+\ [ %LIST | head | tail ]
+
+: empty-list nil ;
+
+: l>head ( list -- 'head ) cell+ ;
+: l>tail ( list -- 'tail ) 2 cells + ;
+: head   ( list -- head )  l>head @ ;
+: tail   ( list -- tail )  l>tail @ ;
+
+: countl ( list -- length )
+  0 BEGIN over nil? WHILE 1+ >R tail R> REPEAT nip ;
+
+: list? ( x -- list? ) @ %list = ;
+
+: allocl ( -- ) 3 cells allocate throw
+  %list over !
+  nil over l>head !
+  nil over l>tail ! ;
+
+: cons ( x list1 -- list2 )
+  3 cells allocate throw >R
+  %list R@ !
+  R@ l>tail !
+  R@ l>head !
+  R> ;
+
+
+: revlist>vector ( list -- vector )
+  dup countl allocv swap ( vector list )
+  over countv ?dup 0= IF drop EXIT THEN ( vector list count )
+  1- 0 swap DO \ I is the index ( vector list )
+    2dup head i rot atv ! ( vector list )
+    tail
+  -1 +LOOP drop ;
+
+
+VARIABLE (printl-sep-ch)
+: (printl-sep) (printl-sep-ch) @ pinch   bl (printl-sep-ch) ! ;
+
+:noname ( list -- )
+  (printl-sep-ch) @ >R
+  [CHAR] ( (printl-sep-ch) !
+  BEGIN dup some? WHILE (printl-sep)   dup head (pr-str)   tail REPEAT
+  drop [CHAR] ) pinch
+  R> (printl-sep-ch) ! ;   %list method-of (pr-str)

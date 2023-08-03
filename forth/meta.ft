@@ -1,0 +1,24 @@
+\ Some Forth meta magic - like the "multimethods" style overloading.
+
+\ Use these sort of like a Clojure multimethod:
+\ Define the multi in one place like
+\   multi pr-str    ok
+\ which defines slots for #types implementations, each holding an xt.
+\ Then you can set the implementation for a particular type like this:
+\   :noname ... ; %string method-of pr-str    ok
+
+41 CONSTANT err-no-impl
+
+\ This is the default implementation - it prints an error using the name token.
+: (no-impl) ( mal-value body -- )
+  ." *** No implementation for " #types cells + @ id. ." for type " % . cr
+  err-no-impl throw ;
+
+\ Multis have #types 1+ cells of space: the #types xts, plus its own nt for errors.
+: multi ( "name" --    X: mal-value -- mal-value )
+    CREATE   #types 0 DO 0 , LOOP   latest ,
+  DOES> ( mal-value 'xts ) over % cells over + @ ( mal-value 'xts xt )
+    dup IF nip execute ELSE drop (no-impl) THEN ;
+
+: method-of ( xt %type "name" -- ) cells ' >body + ! ;
+

@@ -1,0 +1,19 @@
+0 CONSTANT %NIL
+1 CONSTANT %NUMBER
+2 CONSTANT %STRING
+3 CONSTANT %SYMBOL
+4 CONSTANT %KEYWORD
+5 CONSTANT %LIST
+6 CONSTANT %VECTOR
+7 CONSTANT %MAP
+
+8 CONSTANT #types
+
+CREATE nil %nil ,
+
+: nil?  ( x -- ? ) nil = ;
+: some? ( x -- ? ) nil <> ;
+
+\ The type value is the first cell of everything.
+: % ( x -- %type ) @ ;
+

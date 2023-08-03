@@ -1,0 +1,104 @@
+\ Reader functions
+
+\ The current reader's state. This points to three cells:
+\ [ token-len | c-addr | remaining-length ]
+\ The first two form a Forth string for the current token, in 2@ order.
+\ The third cell gives the remaining length of the string in total.
+VARIABLE reader
+
+: reader>c-addr cell+ ;
+: reader>len    ;
+: reader>tail  2 cells + ;
+
+: >reader ( c-addr ) reader @ reader>c-addr @ ;
+
+\ : mk-reader ( list-tokens -- reader )
+\   revlist>vector   2 cells allocate throw   tuck !  ( reader )
+\   0 over cell+ ! ;
+
+: +reader ( delta -- )
+  dup    reader @ reader>c-addr +!
+  negate reader @ reader>tail   +! ;
+
+: eol? ( -- ? ) reader @ reader>tail @ 0= ;
+
+: char-match ( c-addr u "name" --     X: ch -- ? )
+    CREATE   dup c, 0 DO dup i + c@ c, LOOP drop align
+  DOES> ( ch 'counted )
+    count over + swap DO ( ch )
+      i c@ over = IF drop true UNLOOP EXIT THEN
+    LOOP drop false ;
+
+
+:noname S\"  \t\n\r"    ; execute char-match space?
+:noname S" [](){}'`~^@" ; execute char-match singleton?
+:noname S\" ;,\q"       ; execute char-match non-symbol?
+
+: skip-spaces ( -- ) BEGIN >reader c@ space? WHILE 1 +reader REPEAT ;
+
+: ~@? ( -- ? ) >reader c@ [char] ~ =   >reader char+ c@ [char] @ =   and ;
+
+: /token! ( u -- ) reader @ reader>len ! ;
+
+VARIABLE backslash?
+
+42 CONSTANT err-malformed-string
+
+: end-token ( c-addr -- ) >reader - ( len ) reader @ reader>len ! ;
+
+: string-token ( -- )
+  >reader BEGIN
+    dup c@ [char] \ = IF true backslash? !   char+ THEN
+    dup c@ [char] " =   backslash? @ 0= and IF \ Real end of string
+      char+ ( after-quote ) end-token
+      EXIT THEN
+    eol? IF err-malformed-string throw THEN
+    char+ \ Just keep advancing.
+  AGAIN ;
+
+\ Consumes the entire rest of the line.
+: comment-token ( -- ) reader @ dup reader>tail @   swap reader>len ! ;
+
+: basic-token ( -- )
+  >reader BEGIN
+    \ Check EOL
+    >reader reader @ reader>tail @ + over <= IF end-token EXIT THEN
+    \ Check if the current character is special or part of a number/symbol.
+    dup c@ dup  singleton?
+           over non-symbol? or
+           swap space?      or   IF end-token EXIT THEN
+    \ Keep consuming characters!
+    char+
+  AGAIN ;
+
+
+\ Advances to the next token without returning it.
+: +token ( -- )
+  reader @ reader>len @ +reader \ Advance to after the previous token.
+  skip-spaces                   \ Now pointed at the start of the next token.
+  eol? IF EXIT THEN             \ Bail if we've run out of string.
+  \ Special case for ~@ the only two-char small token.
+  ~@? IF 2 /token! EXIT THEN
+  >reader c@ singleton? IF 1 /token!     EXIT THEN
+  >reader c@ [char] " = IF string-token  EXIT THEN
+  >reader c@ [char] ; = IF comment-token EXIT THEN
+
+  \ Base case: a number or symbol - continue until the next non-special token.
+  basic-token ;
+
+\ Returns the current token, without advancing the token.
+: token ( -- c-addr u ) >reader   reader @ reader>len @ ;
+
+: token+ ( -- c-addr u ) token +token ;
+
+\ Builds a new tokenizer into the reader variable.
+: tokenize ( c-addr u -- )
+  3 cells allocate throw reader !
+  reader @ reader>tail   !
+  reader @ reader>c-addr !
+  0 reader @ reader>len  !
+  +token ;
+
+: dump-tokens ( -- )
+  cr BEGIN eol? 0= WHILE ." token: _" token+ type ." _" cr REPEAT cr ;
+

@@ -1,0 +1,18 @@
+\ String, symbol and keyword handlers.
+\ Strings are stored as two cells and a buffer:
+\ [ %string | length | chars...]
+\ The buffer may be padded to a round length, but that's the GC's business.
+
+: s>len  ( string -- 'length ) cell+ ;
+: s>data ( string -- c-addr  ) 2 cells + ;
+: length ( string -- length ) s>len @ ;
+: s>str  ( string -- c-addr u ) dup s>data swap length ;
+
+\ Printer
+\ TODO: Handle escapes and print-readably.
+:noname ( string -- )
+  [CHAR] " pinch   s>str prn-type   [CHAR] " pinch ; %string method-of (pr-str)
+
+\ Symbols are stored like strings but with a different type.
+:noname ( symbol -- ) s>str prn-type ; %symbol method-of (pr-str)
+

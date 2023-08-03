@@ -1,0 +1,35 @@
+REQUIRE types.ft
+REQUIRE meta.ft
+REQUIRE printer.ft
+REQUIRE vectors.ft
+REQUIRE lists.ft
+REQUIRE strings.ft
+REQUIRE reader.ft
+
+\ REPL =======================================================================
+: READ  ( c-addr u -- c-addr u ) ;
+: EVAL  ( c-addr u -- c-addr u ) ;
+: PRINT ( c-addr u -- c-addr u ) ;
+: rep ( c-addr u -- c-addr u ) READ EVAL PRINT ;
+
+\ Main loop ==================================================================
+\ Gforth's ACCEPT outputs an extra space which breaks Mal's test scripts
+\ : mal-accept ( c-addr u -- +n )
+\   drop dup >R
+\   BEGIN
+\     key
+\     dup  4 = IF drop R> 2drop 0 EXIT THEN \ Return 0 if we got EOF (even if we parsed)
+\     dup 13 = IF drop R> - EXIT THEN
+\     dup emit
+\     over c!   char+
+\   AGAIN ;
+
+: mal-accept ( c-addr u -- +n good? ) stdin read-line throw ;
+
+: main ( -- )
+  BEGIN
+    ." user> "   input 255 mal-accept
+  WHILE ( len )
+    input swap rep TYPE cr
+  REPEAT ;
+
