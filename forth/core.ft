@@ -1,5 +1,4 @@
-\ Core namespace for the Mal environment
-
+\ REPL environment ===========================================================
 VARIABLE repl-env
 
 empty-map repl-env !
@@ -7,7 +6,7 @@ empty-map repl-env !
 : builtin: ( xt "name" -- )
   builtin   parse-name >symbol swap   repl-env @ assoc   repl-env ! ;
 
-\ Helpers ====================================================================
+\ Forth Helpers ==============================================================
 \ Calls xt ( acc x -- acc' ) repeatedly for each element of the list.
 : reduce ( list zero xt -- result )
   >R BEGIN over emptyl? 0= WHILE ( list acc )
@@ -19,18 +18,31 @@ empty-map repl-env !
 : bin-arithmetic ( list xt -- result )
   >R dup head num-value   swap tail head num-value   R> execute number ;
 
+\ Builtins ===================================================================
 \ Builtins all take their args as a Mal list.
+
+\ -- Arithmetic ==============================================================
 \ +
 : [+] ( acc number -- acc' ) num-value + ;
 :noname ( argv -- number ) 0   ['] [+]   reduce number ; builtin: +
-
-\ -
-:noname ( argv -- number ) ['] - bin-arithmetic ; builtin: -
-
 \ *
 : [*] ( acc number -- acc' ) num-value * ;
 :noname ( argv -- number ) 1   ['] [*]   reduce number ; builtin: *
 
+\ -
+:noname ( argv -- number ) ['] - bin-arithmetic        ; builtin: -
 \ /   - Using Forth's integer division.
-:noname ( argv -- number ) ['] / bin-arithmetic ; builtin: /
+:noname ( argv -- number ) ['] / bin-arithmetic        ; builtin: /
 
+\ -- Construction ============================================================
+\ (hash-map k1 v1 k2 v2 ...)
+: [hash-map1] ( map list -- map' )
+  dup emptyl? IF drop EXIT THEN
+  dup head swap tail dup tail >R ( map head list+1   R: list+2 )
+  head rot assoc ( map'   R: list+2 )
+  R> ;
+
+:noname empty-map swap BEGIN dup emptyl? 0= WHILE
+  dup head swap tail dup tail >R ( map head list+1   R: list+2 )
+  head rot assoc ( map'   R: list+2 )
+  R> REPEAT ( map empty ) drop                         ; builtin: hash-map

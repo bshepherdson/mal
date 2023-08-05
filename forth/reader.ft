@@ -155,7 +155,7 @@ VARIABLE negated?
 \ -- Other readers ===========================================================
 \ Strip off the quotes and return as a string.
 \ TODO: Handle escaping - the backslashes should be dropped as it's copied in.
-: read-str-lit ( c-addr u -- string ) 1 /string   1- >string ;
+: read-str-lit ( c-addr u -- string ) 1 /string   1- >string   +token ;
 
 \ Starts pointing at : but that's not part of the string, so move past it.
 : read-keyword ( c-addr u -- keyword ) +token   1 /string >keyword ;
@@ -178,9 +178,14 @@ DEFER [hash-map]
 : read-map ( c-addr u -- map )
   2drop empty-list +token
   BEGIN token drop c@ [char] } <> WHILE ( list )
-    token+ read-form token+ read-form ( list key value )
+    read-form
+    \ ." key:   " dup pr-str type cr
+    read-form ( list key value )
+    \ ." value: " dup pr-str type cr
     rot cons cons ( list' )
-  REPEAT S" hash-map" >symbol swap cons ;
+  REPEAT +token S" hash-map" >symbol swap cons
+  \ ." final: " dup pr-str type cr
+  ;
 
 \ TODO: Various reader macros like @, ' and ~
 : read-atom ( -- value )

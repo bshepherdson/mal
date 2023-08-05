@@ -12,8 +12,6 @@ REQUIRE reader.ft
 REQUIRE errors.ft
 REQUIRE core.ft
 
-\ REPL environment ===========================================================
-
 \ REPL =======================================================================
 : READ  ( c-addr u -- form )     read-str-raw ;
 
