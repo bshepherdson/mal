@@ -4,6 +4,9 @@
 : msg-malformed-list   ." expected ')', got EOF" ;
 : msg-malformed-number ." broken number literal" ;
 : msg-indexv           ." vector index out of bounds" ;
+: msg-unknown-symbol   ." unknown symbol" ; \ TODO: Make this more informative.
+
+\ Next error: 7
 
 CREATE error-printers
   ' msg-no-impl          ,
@@ -11,5 +14,6 @@ CREATE error-printers
   ' msg-malformed-list   ,
   ' msg-malformed-number ,
   ' msg-indexv           ,
+  ' msg-unknown-symbol   ,
 
 : error. ( 1-based-err# -- ) 1- cells error-printers + @ execute cr ;

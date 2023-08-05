@@ -44,5 +44,30 @@ CREATE empty-vector %vector , 0 ,
 \ Printer for vectors.
 :noname ( vector -- )
   [CHAR] [ pinch
-  dup countv 0 ?DO i IF space THEN   i over getv (pr-str) LOOP drop
+  dup countv 0 ?DO i IF pspace THEN   i over getv (pr-str) LOOP drop
   [CHAR] ] pinch ; %vector method-of (pr-str)
+
+\ Comparison
+:noname ( x y -- -1|0|1 )
+  %?cmp   over countv over countv   min 0 DO ( x y )
+    over i swap getv   over i swap getv   cmp ?dup IF ( x y -1|1 )
+      >R 2drop R> UNLOOP EXIT THEN
+  LOOP
+  \ Same prefix, fall back to comparing the lengths.
+  countv swap countv swap cmp ; %vector method-of compare
+
+\ Eval
+:noname ( env vector -- vector )
+  \ Copy the vector, EVAL-ing everything in it on the way through.
+  dup empty-vector = IF nip EXIT THEN
+
+  dup countv allocv ( env raw cooked )
+  dup >R \ Save the output vector for later.
+  v>data swap v>data swap ( env raw-addr cooked-addr )
+
+  R@ countv 0 ?DO
+    i cells   2over   ( env raw cooked   offset env raw )
+    rot + @           ( env raw cooked   env value )
+    eval              ( env raw cooked   eval'd )
+    over i cells + !  ( env raw cooked )
+  LOOP 2drop drop ( ) R> ; %vector method-of eval-ast

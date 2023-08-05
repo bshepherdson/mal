@@ -1,0 +1,36 @@
+\ Core namespace for the Mal environment
+
+VARIABLE repl-env
+
+empty-map repl-env !
+
+: builtin: ( xt "name" -- )
+  builtin   parse-name >symbol swap   repl-env @ assoc   repl-env ! ;
+
+\ Helpers ====================================================================
+\ Calls xt ( acc x -- acc' ) repeatedly for each element of the list.
+: reduce ( list zero xt -- result )
+  >R BEGIN over emptyl? 0= WHILE ( list acc )
+    over head R@ execute ( list acc' )
+    swap tail swap
+  REPEAT nip R> drop ;
+
+\ Expects a length-2 list and calls xt with the two inner values: ( a b -- result )
+: bin-arithmetic ( list xt -- result )
+  >R dup head num-value   swap tail head num-value   R> execute number ;
+
+\ Builtins all take their args as a Mal list.
+\ +
+: [+] ( acc number -- acc' ) num-value + ;
+:noname ( argv -- number ) 0   ['] [+]   reduce number ; builtin: +
+
+\ -
+:noname ( argv -- number ) ['] - bin-arithmetic ; builtin: -
+
+\ *
+: [*] ( acc number -- acc' ) num-value * ;
+:noname ( argv -- number ) 1   ['] [*]   reduce number ; builtin: *
+
+\ /   - Using Forth's integer division.
+:noname ( argv -- number ) ['] / bin-arithmetic ; builtin: /
+

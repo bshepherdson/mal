@@ -15,8 +15,14 @@ CREATE num-literals
   dup -1 3 within IF 1+ cells num-literals + @ EXIT THEN
   2 cells allocate throw   %number over !   tuck cell+ ! ;
 
+: num-value ( number -- n ) cell+ @ ;
+
 \ Printer for numbers, uses Forth's pictured numeric output and signed values.
 \ Base is always decimal for now.
 :noname ( number -- )
-  cell+ @ <# dup S>D #S rot sign #> prn-type ;   %number method-of (pr-str)
+  num-value <# dup abs S>D #S rot sign #> prn-type ;   %number method-of (pr-str)
+
+:noname ( x y -- )
+  ." num-compare: " over % . dup % . cr
+  %?cmp   ."   still here" cr num-value >R num-value R> cmp ;   %number method-of compare
 

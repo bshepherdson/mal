@@ -1,0 +1,1 @@
+: hex.s ( -- ) base @ >R   hex .s   R> base ! ;

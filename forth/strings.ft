@@ -32,3 +32,30 @@
 : >string  ( c-addr u -- string ) %string  (>stringy) ;
 : >keyword ( c-addr u -- keyword) %keyword (>stringy) ;
 
+\ Comparison =================================================================
+:noname ( x y -- -1|0|1 )
+  %?cmp
+  2dup >R s>str R> s>str ( x y x-addr xu y-addr yu )
+  rot min 0 ?DO ( x y x-addr y-addr )
+    over i + c@   over i + c@   cmp ?dup IF ( x y x-addr y-addr -1|1 )
+      >R 2drop 2drop R> UNLOOP EXIT THEN
+  LOOP ( x y x-addr y-addr )
+  2drop \ The longer string is the winner.
+  length >R length R> cmp ;
+  dup %string  method-of compare
+  dup %symbol  method-of compare
+      %keyword method-of compare
+
+\ Eval =======================================================================
+\ Strings and keywords are already eval'd.
+\ Symbols, however, eval by being looked up in the environment.
+CREATE fail-get-sentinel
+
+6 CONSTANT err-unknown-symbol
+
+:noname ( env symbol -- value )
+  swap fail-get-sentinel -rot ( default symbol env )
+  get-or                      ( value|fail-get-sentinel )
+  dup fail-get-sentinel = IF drop err-unknown-symbol throw THEN ;
+%symbol method-of eval-ast
+

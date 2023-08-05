@@ -22,3 +22,19 @@
 
 : method-of ( xt %type "name" -- ) cells ' >body + ! ;
 
+
+\ Declaring some multi-methods early so each type can implement them.
+multi compare ( x y -- -1 | 0 | 1 ) \ -1 -> x < y; 1 -> x > y
+: equal? ( x y -- ? ) compare 0= ;
+
+
+multi eval-ast ( env form -- form )
+\ Many types just eval to themselves: numbers, strings, keywords, nil, booleans.
+:noname nip ;
+  dup %nil      method-of eval-ast
+  dup %number   method-of eval-ast
+  dup %string   method-of eval-ast
+  dup %keyword  method-of eval-ast
+      %function method-of eval-ast
+
+DEFER EVAL

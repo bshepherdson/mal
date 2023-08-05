@@ -40,7 +40,19 @@ CREATE empty-list %LIST , 0 , 0 ,
 
 : (pr-list-sep) ( list -- ) tail emptyl? 0= IF bl pinch THEN ;
 
+\ Printing
 :noname ( list -- )
   [CHAR] ( pinch
   BEGIN dup emptyl? 0= WHILE dup head (pr-str)   dup (pr-list-sep)   tail REPEAT
   drop [CHAR] ) pinch ;   %list method-of (pr-str)
+
+\ Eval
+:noname ( env list -- list' )
+  \ Copy the list, EVAL-ing everything in it on the way through.
+  \ Make sure to get "applicative" order by EVALing head before recursing.
+  \ This puts a burden on both stacks, but it can't be avoided without copying.
+  dup emptyl? IF nip EXIT THEN \ Bail when we hit the empty list.
+  2dup head          ( env list env head )
+  EVAL               ( env list new-head )
+  -rot tail recurse  ( new-head new-tail )
+  cons ; %list method-of eval-ast

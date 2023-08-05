@@ -1,13 +1,16 @@
-0 CONSTANT %NIL
-1 CONSTANT %NUMBER
-2 CONSTANT %STRING
-3 CONSTANT %SYMBOL
-4 CONSTANT %KEYWORD
-5 CONSTANT %LIST
-6 CONSTANT %VECTOR
-7 CONSTANT %MAP
+ 0 CONSTANT %NIL
+ 1 CONSTANT %NUMBER
+ 2 CONSTANT %STRING
+ 3 CONSTANT %SYMBOL
+ 4 CONSTANT %KEYWORD
+ 5 CONSTANT %LIST
+ 6 CONSTANT %VECTOR
+ 7 CONSTANT %MAP
+ 8 CONSTANT %NODE
+ 9 CONSTANT %FUNCTION
+10 CONSTANT %ENV
 
-8 CONSTANT #types
+11 CONSTANT #types
 
 CREATE nil %nil ,
 
@@ -16,4 +19,16 @@ CREATE nil %nil ,
 
 \ The type value is the first cell of everything.
 : % ( x -- %type ) @ ;
+
+
+\ Functions ==================================================================
+\ [ %function | xt | closure-env ]
+: builtin ( xt -- fn )
+  3 cells allocate throw >R
+  %function R@ !
+  R@ cell+ !
+  nil R@ 2 cells + !
+  R> ;
+
+: exec-fn ( args fn -- result ) cell+ @ execute ;
 

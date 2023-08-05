@@ -16,6 +16,10 @@ VARIABLE print-readably?
 
 : pr-str ( value -- c-addr u ) prn0 (pr-str) prn>str ;
 
+: pspace  ( -- ) 32 pinch ;
+: pspaces ( u -- ) 0 ?DO pspace LOOP ;
 
-:noname S" nil" prn-type ; %nil method-of (pr-str)
+
+:noname drop S" nil"         prn-type ; %nil      method-of (pr-str)
+:noname drop S" #<function>" prn-type ; %function method-of (pr-str)
 

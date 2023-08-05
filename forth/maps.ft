@@ -1,0 +1,186 @@
+\ Mal hash maps, but also Forth hash maps, since they don't exist normally.
+\ These are implemented as binary search trees ordered by COMPARE.
+\ This word returns -1, 0 or 1 a la Java Comparators.
+\ Note that it first checks the %type and splits on that!
+
+\ Maps are stored in a few pieces:
+\ Root: [ %map  | size | root ]
+\ Node: [ %node | key | value | left | right ]
+\ Left and right are nil if there's no subtree, or another node.
+
+CREATE empty-map
+  %map , 0 , nil ,
+
+: map>size cell+ ;
+: map>root 2 cells + ;
+
+: node>key   cell+ ;
+: node>value 2 cells + ;
+: node>left  3 cells + ;
+: node>right 4 cells + ;
+
+: root    ( map -- node ) map>root @ ;
+: countm  ( map -- len )  map>size @ ;
+: emptym? ( map -- ? )    countm 0=  ;
+
+: nkey   ( node -- key )   node>key @ ;
+: nvalue ( node -- value ) node>value @ ;
+: left   ( node -- value ) node>left  @ ;
+: right  ( node -- value ) node>right @ ;
+
+: new-map ( root size -- map )
+  3 cells allocate throw >R
+  %map R@ !
+  R@ map>size !
+  R@ map>root !
+  R> ;
+
+: leaf ( key value -- node )
+  5 cells allocate throw >R
+  %node R@ !
+  R@ node>value     !
+  R@ node>key       !
+  nil R@ node>left  !
+  nil R@ node>right !
+  R> ;
+
+
+\ Clojure-style persistent data structures
+\ So when eg. inserting or removing things, we curse make to the root while
+\ cloning and replacing one branch.
+
+\ Helpers ====================================================================
+\ While recursing on our way back up to the root, therefore, we need left and
+\ right cloning things.
+: clone-node ( node -- node' ) 5 cells allocate throw   tuck 5 cells move ;
+
+: cloner ( x node offset -- node' ) >R clone-node tuck R> execute ! ;
+
+: clone-value ( new-value old-node -- new-node ) ['] node>value cloner ;
+: clone-left  ( new-left  old-node -- new-node ) ['] node>left  cloner ;
+: clone-right ( new-right old-node -- new-node ) ['] node>right cloner ;
+
+: clone-both  ( new-left new-right old-node -- new-node )
+  clone-right tuck node>left ! ;
+
+\ Insert =====================================================================
+\ Note that node can be nil - in that case a leaf is returned. This simplifies
+\ the recursive cases.
+: (assoc) ( k v node|nil -- delta-size node' )
+  dup nil? IF drop leaf 1 swap EXIT THEN
+
+  2 pick over nkey compare ?dup 0= IF ( k v node )
+    \ Replacing this node
+    nip clone-value 0 swap ( 0 node' ) EXIT THEN
+
+  \ ( k v node -1|1 )
+  0< IF \ Left side
+    dup >R left  ( k v left )  recurse ( delta left' )  R> clone-left
+  ELSE  \ Right side
+    dup >R right ( k v right ) recurse ( delta right' ) R> clone-right
+  THEN ;
+
+: assoc ( k v map -- map' )
+  dup >R   root (assoc) ( delta-size node'    R: root )
+  R> countm rot + new-map ;
+
+\ Delete =====================================================================
+\ This grabs the right branch by default, and left if necessary.
+
+\ Removes the leftmost (ie. minimum) node below this node, rebuilding the path
+\ to the root on that side. The result is ( min new-path ).
+\ If we find a node whose left branch is nil, return ( this right ), so that
+\ leftmost node becomes the loose one, and its former right branch takes its
+\ place.
+: (grab-min) ( node -- min-node path-node )
+  dup left  nil? IF dup right ( min-node path-node ) EXIT THEN
+  dup >R left recurse R> clone-left ;
+
+: (grab-max) ( node -- max-node path-node )
+  dup right nil? IF dup left ( min-node path-node ) EXIT THEN
+  dup >R right recurse R> clone-right ;
+
+: (dissoc-left) ( node -- delta-size node' )
+  \ Have a left side, so (grab-max) from there.
+  dup left (grab-max) ( old-node max-node path-node )
+  \ max-node becomes this new node, with path-node as its left branch.
+  \ The original right branch is preserved.
+  -rot ( path-node old-node max-node ) >R right R> ( path old-right max )
+  clone-both -1 swap ;
+
+: (dissoc-right) ( node -- delta-size node' )
+  \ Have a right side, so (grab-min) from it.
+  dup right (grab-min) ( old-node min-node path-node )
+  \ min-node becomes this new node, with path-node as its right branch.
+  \ The original left branch is preserved.
+  rot left ( min path old-left ) swap rot ( old-left path min )
+  clone-both -1 swap ;
+
+: (dissoc) ( k node -- delta-size node' )
+  \ If node is nil, this key was never there, so just nip and return.
+  dup nil? IF nip 0 swap ( 0-size node ) EXIT THEN
+  2dup nkey compare ( k node -1|0|1 ) ?dup 0= IF \ Found it!
+    nip ( node )
+    \ Try to grab-max, if we have a right side.
+    dup right nil? IF \ No right, try left
+      dup left nil? IF \ No left either, so just drop this node.
+        drop -1 nil ( delta-size node' )
+      ELSE (dissoc-left) THEN
+    ELSE (dissoc-right) THEN
+  ELSE \ Not this node, so branch left or right. ( k node -1|1)
+    0< IF dup >R left  recurse R> clone-left
+    ELSE  dup >R right recurse R> clone-right THEN
+  THEN ; ( delta-size node' )
+
+: dissoc ( k map -- map' )
+  dup >R   root (dissoc) ( delta-size node'   R: root )
+  R> countm rot + new-map ;
+
+
+\ Lookup =====================================================================
+: (get) ( default k node -- value|default )
+  dup nil? IF 2drop EXIT THEN
+  2dup nkey compare ?dup 0= IF \ Found it ( default k node )
+    nvalue -rot 2drop ( value )
+  ELSE
+    0< IF ( default k node ) left ELSE right THEN recurse
+  THEN ;
+
+: get-or ( default k map -- value|default ) root (get) ;
+: get ( k map -- value|nil ) nil -rot get-or ;
+
+
+\ Printing ===================================================================
+VARIABLE (later-node?)
+
+: pr-node ( node -- )
+  dup nil? IF drop EXIT THEN
+  \ In-order traversal
+  dup left recurse
+  (later-node?) @ IF [char] , pinch bl pinch THEN
+  dup nkey   (pr-str) bl pinch
+  dup nvalue (pr-str)
+  (later-node?) on
+  right recurse ;
+
+:noname ( map -- )
+  (later-node?) @ >R   (later-node?) off
+  [char] { pinch   root pr-node   [char] } pinch
+  R> (later-node?) ! ;   %map method-of (pr-str)
+
+
+: pr-gutter ( depth -- ) dup 2 * 0 ?DO '-' emit LOOP   IF space THEN ;
+: pr-tree-node ( depth node -- )
+  dup nil? IF 2drop EXIT THEN
+  over pr-gutter
+  dup nkey pr-str type   ':' emit space   dup nvalue pr-str type cr
+  swap 1+ swap 2dup left recurse   right recurse ;
+
+: pr-tree ( map -- ) root 0 swap pr-tree-node ;
+
+\ Eval
+:noname ( env map -- map' )
+  \ Maps are never really Eval'd! They are read by the reader into
+  \ (hash-map k1 v1 k2 v2 ...) so if a real map is EVAL'd it's already eval'd and can
+  \ just be returned.
+  nip ; %map method-of eval-ast

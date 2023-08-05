@@ -123,15 +123,18 @@ DEFER read-form
   \ Otherwise, read a whole form, then recurse and cons them together.
   read-form recurse cons ;
 
-\ -- Token readers ===========================================================
-\ Strip off the quotes and return as a string.
-\ TODO: Handle escaping - the backslashes should be dropped as it's copied in.
-: read-str-lit ( c-addr u -- string ) 1 /string 1- >string ;
+\ -- Number readers ==========================================================
+VARIABLE negated?
 
 \ Inner number reader - parse using Forth's machinery, throw if not clean.
 : (read-number) ( c-addr u -- number|0 )
   0 0 2swap >number ( ud c-addr u ) IF \ Incomplete parse!
-    drop 2drop 0 ELSE drop ( ud ) D>S number +token THEN ;
+    drop 2drop 0
+  ELSE
+    drop ( ud ) D>S
+    negated? @ IF negate THEN
+    number +token
+  THEN ;
 
 \ Starts out pointing at the 0x part. Skip that, then parse with base 16.
 : read-hex     ( c-addr u -- number|0 )
@@ -139,11 +142,45 @@ DEFER read-form
 : read-binary  ( c-addr u -- number|0 )
   2 /string   base @ >R   2 base ! (read-number)   R> base ! ;
 
-\ TODO: Negatives and unary +
 : read-decimal ( c-addr u -- number|0 ) (read-number) ;
+
+: ?read-number ( c-addr u -- value -1 | 0 )
+  negated? off
+  dup 1 > IF \ Got enough characters to try parsing a prefix.
+    over c@   '-' = IF 1 /string   negated? on THEN
+  THEN
+  \ TODO: Other bases?
+  read-decimal ?dup ( value true | false ) ;
+
+\ -- Other readers ===========================================================
+\ Strip off the quotes and return as a string.
+\ TODO: Handle escaping - the backslashes should be dropped as it's copied in.
+: read-str-lit ( c-addr u -- string ) 1 /string   1- >string ;
 
 \ Starts pointing at : but that's not part of the string, so move past it.
 : read-keyword ( c-addr u -- keyword ) +token   1 /string >keyword ;
+
+: read-vector  ( c-addr u -- vector )
+  2drop empty-list +token
+  BEGIN token drop c@ [char] ] <> WHILE ( list )
+    read-form swap cons
+  REPEAT ( list ) +token revlist>vector ;
+
+DEFER [hash-map]
+
+\ Maps are a special case - they parse as a list calling
+\ (hash-map k1 v1 k2 v2 ...) to dynamically construct the map.
+\ This is because the map can't really be built with unevaluated ASTs as keys,
+\ unlike a vector or list.
+\ TODO: This can be optimized to directly build a map if all the keys are
+\ constants. But that's probably not worth the overhead to check. If this does
+\ change, make sure to update eval-ast for maps.
+: read-map ( c-addr u -- map )
+  2drop empty-list +token
+  BEGIN token drop c@ [char] } <> WHILE ( list )
+    token+ read-form token+ read-form ( list key value )
+    rot cons cons ( list' )
+  REPEAT S" hash-map" >symbol swap cons ;
 
 \ TODO: Various reader macros like @, ' and ~
 : read-atom ( -- value )
@@ -151,17 +188,10 @@ DEFER read-form
   token over c@ ( c-addr u ch )
   dup [char] " = IF drop read-str-lit EXIT THEN
   dup [char] : = IF drop read-keyword EXIT THEN
+  dup [char] [ = IF drop read-vector  EXIT THEN
+      [char] { = IF      read-map     EXIT THEN
   \ Numbers start with 0x or 0b, a digit, or -
-  [char] 0 = IF ( c-addr u )
-    dup 1 > IF \ If longer than 1 character, check for 0x and 0b prefixes.
-      over char+ c@ ( c-addr u ch1 )
-      dup [char] x = over [char] X = or IF drop read-hex EXIT THEN
-      dup [char] b = swap [char] B = or IF read-binary   EXIT THEN
-    THEN
-    read-decimal EXIT THEN
-  \ If we're still here, it might be a number that doesn't start with 0, or a symbol.
-  \ Try to parse the entire token as a number using Forth's machinery. ( c-addr u )
-  read-decimal ?dup IF ( value ) EXIT THEN ( )
+  ?read-number IF EXIT THEN
   \ If we're still here, it's a symbol.
   token+ >symbol ;
 
