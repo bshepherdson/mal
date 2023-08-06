@@ -53,9 +53,5 @@ CREATE fail-get-sentinel
 
 6 CONSTANT err-unknown-symbol
 
-:noname ( env symbol -- value )
-  swap fail-get-sentinel -rot ( default symbol env )
-  get-or                      ( value|fail-get-sentinel )
-  dup fail-get-sentinel = IF drop err-unknown-symbol throw THEN ;
-%symbol method-of eval-ast
+:noname ( env symbol -- value ) swap env-get ; %symbol method-of eval-ast
 

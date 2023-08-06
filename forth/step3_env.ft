@@ -1,0 +1,64 @@
+REQUIRE utils.ft
+REQUIRE types.ft
+REQUIRE meta.ft
+REQUIRE compare.ft
+REQUIRE printer.ft
+REQUIRE vectors.ft
+REQUIRE lists.ft
+REQUIRE maps.ft
+REQUIRE env.ft
+REQUIRE strings.ft
+REQUIRE numbers.ft
+REQUIRE reader.ft
+REQUIRE errors.ft
+REQUIRE core.ft
+
+\ REPL =======================================================================
+: READ  ( c-addr u -- form )     read-str-raw ;
+
+\ eval-ast is a MULTI
+
+: eval-list ( env form -- form )
+  dup emptyl? IF nip EXIT THEN \ Return an empty list unchanged.
+  \ ." eval-ing: " dup pr-str type cr
+  eval-ast \ ( form ) a new, evaluated list.
+  \ ."   into:   " dup pr-str type cr
+  dup tail swap head ( argv fn )
+  exec-fn ;
+
+\ EVAL
+:noname ( env form -- form )
+  dup list? IF eval-list ELSE eval-ast THEN ;      IS EVAL
+
+: PRINT ( form     -- c-addr u ) pr-str ;
+
+: rep ( c-addr u -- c-addr u )
+  READ
+  repl-env @ swap EVAL
+  PRINT ;
+
+\ Main loop ==================================================================
+\ Gforth's ACCEPT outputs an extra space which breaks Mal's test scripts
+\ : mal-accept ( c-addr u -- +n )
+\   drop dup >R
+\   BEGIN
+\     key
+\     dup  4 = IF drop R> 2drop 0 EXIT THEN \ Return 0 if we got EOF (even if we parsed)
+\     dup 13 = IF drop R> - EXIT THEN
+\     dup emit
+\     over c!   char+
+\   AGAIN ;
+CREATE input 256 chars allot align
+
+: mal-accept ( c-addr u -- +n good? ) stdin read-line throw ;
+
+: main ( -- )
+  BEGIN
+    ." user> "   input 255 mal-accept
+  WHILE ( len )
+    input swap   ['] rep catch   ?dup IF error. ELSE type THEN cr
+  REPEAT ;
+
+repl-env @ pr-str type cr
+
+main

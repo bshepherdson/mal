@@ -5,8 +5,9 @@
 : msg-malformed-number ." broken number literal" ;
 : msg-indexv           ." vector index out of bounds" ;
 : msg-unknown-symbol   ." unknown symbol" ; \ TODO: Make this more informative.
+: msg-not-found        ." not found" ;      \ TODO: Make this more informative.
 
-\ Next error: 7
+\ Next error: 8
 
 CREATE error-printers
   ' msg-no-impl          ,
@@ -15,5 +16,6 @@ CREATE error-printers
   ' msg-malformed-number ,
   ' msg-indexv           ,
   ' msg-unknown-symbol   ,
+  ' msg-not-found        ,
 
 : error. ( 1-based-err# -- ) 1- cells error-printers + @ execute cr ;

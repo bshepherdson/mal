@@ -149,23 +149,38 @@ CREATE empty-map
 : get-or ( default k map -- value|default ) root (get) ;
 : get ( k map -- value|nil ) nil -rot get-or ;
 
+\ Iteration ==================================================================
+\ Does an in-order traversal of the whole map, calling xt with each node.
+VARIABLE (eachm-xt)
+: >var< ( new var -- old ) dup @ -rot ! ;
+
+\ In-order traversal. Make sure when EXECUTEing the xt there's nothing else on
+\ the stack.
+: (eachm) ( ... node -- ... )
+  dup nil? IF drop EXIT THEN
+  dup >R left recurse    ( ... R: node )
+  R@ nkey R@ nvalue (eachm-xt) @ execute ( ... R: node )
+  R> right recurse ;
+
+
+\ xt is ( ... k v -- ... ) and has access to the stack below the args to eachm.
+: eachm ( ... xt map -- ... )
+  swap (eachm-xt) >var< >R  ( map )
+  root (eachm)
+  R> (eachm-xt) ! ;
+
 
 \ Printing ===================================================================
 VARIABLE (later-node?)
 
-: pr-node ( node -- )
-  dup nil? IF drop EXIT THEN
-  \ In-order traversal
-  dup left recurse
+: pr-node ( key value -- )
   (later-node?) @ IF [char] , pinch bl pinch THEN
-  dup nkey   (pr-str) bl pinch
-  dup nvalue (pr-str)
   (later-node?) on
-  right recurse ;
+  swap (pr-str) bl pinch (pr-str) ;
 
 :noname ( map -- )
   (later-node?) @ >R   (later-node?) off
-  [char] { pinch   root pr-node   [char] } pinch
+  [char] { pinch   ['] pr-node swap eachm   [char] } pinch
   R> (later-node?) ! ;   %map method-of (pr-str)
 
 

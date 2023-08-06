@@ -1,0 +1,25 @@
+\ Special forms are checked in EVAL, they're not regular symbols.
+
+\ Each special form has a symbol it matches against; they can go in a map or
+\ environment.
+VARIABLE special-forms
+nil new-env special-forms !
+
+\ Returns the original env and list if no special form matches.
+: ?special-form ( env list -- env' list' )
+  dup head special-forms @ find  ( list value )
+  dup some? IF ( env list sp-form-xt ) execute EXIT THEN
+  drop ;
+
+: special-form: ( xt "name" -- )
+  parse-name >symbol swap special-forms @ env-set ;
+
+\ NOTE: Special forms take the entire list, not just the arguments.
+
+\ TODO: I'm not certain what def! is supposed to return.
+\ (def! sym value)
+:noname ( env list -- env' nil )
+  2dup tail tail eval ( env list value )
+  swap tail head      ( env value key )
+  swap dup >R rot     ( key value env    R: value )
+  env-set R> ; special-form: def!

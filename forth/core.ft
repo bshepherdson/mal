@@ -1,10 +1,10 @@
 \ REPL environment ===========================================================
 VARIABLE repl-env
 
-empty-map repl-env !
+nil new-env repl-env !
 
 : builtin: ( xt "name" -- )
-  builtin   parse-name >symbol swap   repl-env @ assoc   repl-env ! ;
+  builtin   parse-name >symbol swap   repl-env @ env-set   repl-env ! ;
 
 \ Forth Helpers ==============================================================
 \ Calls xt ( acc x -- acc' ) repeatedly for each element of the list.
