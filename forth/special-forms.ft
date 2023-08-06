@@ -7,19 +7,50 @@ nil new-env special-forms !
 
 \ Returns the original env and list if no special form matches.
 : ?special-form ( env list -- env' list' )
-  dup head special-forms @ find  ( list value )
+  dup list? 0= IF EXIT THEN
+  dup emptyl?  IF EXIT THEN
+  dup head special-forms @ env-find  ( list value )
   dup some? IF ( env list sp-form-xt ) execute EXIT THEN
   drop ;
 
 : special-form: ( xt "name" -- )
-  parse-name >symbol swap special-forms @ env-set ;
+  parse-name >symbol swap   special-forms @ env-set   special-forms ! ;
 
 \ NOTE: Special forms take the entire list, not just the arguments.
 
-\ TODO: I'm not certain what def! is supposed to return.
-\ (def! sym value)
+\ TODO: I'm not certain what def! is supposed to return. I settled on the value.
+\ (def! sym value) ===========================================================
 :noname ( env list -- env' nil )
-  2dup tail tail eval ( env list value )
-  swap tail head      ( env value key )
+  2dup third eval ( env list value )
+  swap second     ( env value key )
   swap dup >R rot     ( key value env    R: value )
   env-set R> ; special-form: def!
+
+\ (let* (binding value ...) body) ============================================
+VARIABLE (bind-key)
+
+: (let-bind) ( env key|value -- env' )
+  (bind-key) @ IF \ Have a key, bind to this value after EVALing it.
+    over >R EVAL R> ( value-eval'd env )
+    (bind-key) @ -rot ( k v env )
+    env-set
+    0 (bind-key) !
+  ELSE \ This is the key, just save it.
+    (bind-key) !
+  THEN ;
+
+: with-bindings ( env1 bindings -- env2 )
+  \ Bindings might be a vector or a list; abstract it with each.
+  0 (bind-key) >var< >R
+  ['] (let-bind) swap each
+  R> (bind-key) ! ;
+
+:noname ( env list -- env' body-result )
+  \ Create a new environment for the let bindings, descending from the input.
+  over new-env       ( outer-env list let-env )
+  over second        ( outer-env list let-env binding-list )
+  with-bindings      ( outer-env list bound-env )
+  over third         ( outer-env list bound-env body )
+  EVAL               ( outer-env list result )
+  nip ;   special-form: let*
+

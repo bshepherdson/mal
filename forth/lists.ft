@@ -27,6 +27,10 @@ CREATE empty-list %LIST , 0 , 0 ,
   R@ l>head !
   R> ;
 
+: first  ( list -- value ) head ;
+: second ( list -- value ) tail head ;
+: third  ( list -- value ) tail tail head ;
+
 : reverse ( list1 -- list2 )
   empty-list BEGIN over emptyl? 0= WHILE over head swap cons >R tail R> REPEAT nip ;
 
@@ -38,13 +42,21 @@ CREATE empty-list %LIST , 0 , 0 ,
     tail
   -1 +LOOP drop ;
 
-: (pr-list-sep) ( list -- ) tail emptyl? 0= IF bl pinch THEN ;
+\ Each
+VARIABLE (eachl-xt)
+:noname ( ... xt list -- )
+  swap (eachl-xt) >var< >R   ( list    R: old-xt )
+  BEGIN dup emptyl? 0= WHILE
+    dup >R   head   (eachl-xt) @ execute   R> tail
+  REPEAT drop   R> (eachl-xt) ! ;   %list method-of each
 
 \ Printing
+: (pr-list-each) ( index value -- index' )
+  over IF bl pinch THEN   (pr-str)   1+ ;
+
 :noname ( list -- )
-  [CHAR] ( pinch
-  BEGIN dup emptyl? 0= WHILE dup head (pr-str)   dup (pr-list-sep)   tail REPEAT
-  drop [CHAR] ) pinch ;   %list method-of (pr-str)
+  [CHAR] ( pinch   0 ['] (pr-list-each) rot each drop   [CHAR] ) pinch ;
+%list method-of (pr-str)
 
 \ Eval
 :noname ( env list -- list' )
@@ -56,3 +68,4 @@ CREATE empty-list %LIST , 0 , 0 ,
   EVAL               ( env list new-head )
   -rot tail recurse  ( new-head new-tail )
   cons ; %list method-of eval-ast
+

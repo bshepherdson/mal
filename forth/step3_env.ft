@@ -12,6 +12,7 @@ REQUIRE numbers.ft
 REQUIRE reader.ft
 REQUIRE errors.ft
 REQUIRE core.ft
+REQUIRE special-forms.ft
 
 \ REPL =======================================================================
 : READ  ( c-addr u -- form )     read-str-raw ;
@@ -20,15 +21,20 @@ REQUIRE core.ft
 
 : eval-list ( env form -- form )
   dup emptyl? IF nip EXIT THEN \ Return an empty list unchanged.
-  \ ." eval-ing: " dup pr-str type cr
-  eval-ast \ ( form ) a new, evaluated list.
-  \ ."   into:   " dup pr-str type cr
+  eval-ast      \ ( form ) a new, evaluated list.
   dup tail swap head ( argv fn )
   exec-fn ;
 
 \ EVAL
 :noname ( env form -- form )
-  dup list? IF eval-list ELSE eval-ast THEN ;      IS EVAL
+  depth >R
+  \ ." EVALing:  " dup pr-str type cr
+  ?special-form
+  \ ." SP-forms: " dup pr-str type cr
+  dup list? IF eval-list ELSE eval-ast THEN
+
+  depth R> -  -1 <> IF ." stack error" 200 throw THEN
+  ;      IS EVAL
 
 : PRINT ( form     -- c-addr u ) pr-str ;
 
@@ -58,7 +64,5 @@ CREATE input 256 chars allot align
   WHILE ( len )
     input swap   ['] rep catch   ?dup IF error. ELSE type THEN cr
   REPEAT ;
-
-repl-env @ pr-str type cr
 
 main

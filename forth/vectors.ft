@@ -71,3 +71,13 @@ CREATE empty-vector %vector , 0 ,
     eval              ( env raw cooked   eval'd )
     over i cells + !  ( env raw cooked )
   LOOP 2drop drop ( ) R> ; %vector method-of eval-ast
+
+\ Each
+VARIABLE (eachv-xt)
+:noname ( ... xt vector -- )
+  swap (eachv-xt) >var< >R   ( ... vector   R: old-xt )
+  dup countv 0 DO
+    i over >R   ( ... vector i   R: old-xt vector )
+    swap getv   (eachv-xt) @ execute   R>
+  LOOP drop   R> (eachv-xt) ! ; %vector method-of each
+

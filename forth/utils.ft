@@ -1,3 +1,5 @@
 : hex.s ( -- ) base @ >R   hex .s   R> base ! ;
 
 : alloc-typed ( %type length -- value ) cells allocate throw   tuck ! ;
+
+: >var< ( new var -- old ) dup @ -rot ! ;

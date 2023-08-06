@@ -38,3 +38,5 @@ multi eval-ast ( env form -- form )
       %function method-of eval-ast
 
 DEFER EVAL
+
+multi each ( ... xt coll -- ... ) \ Calls xt with each element of the collection.

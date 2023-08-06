@@ -46,3 +46,9 @@ nil new-env repl-env !
   dup head swap tail dup tail >R ( map head list+1   R: list+2 )
   head rot assoc ( map'   R: list+2 )
   R> REPEAT ( map empty ) drop                         ; builtin: hash-map
+
+\ -- Debugging ===============================================================
+\ (env)
+:noname drop repl-env @                                ; builtin: env
+\ (sum coll)
+:noname first   0 ['] [+]   rot each   number          ; builtin: sum

@@ -67,11 +67,11 @@ CREATE empty-map
 \ Note that node can be nil - in that case a leaf is returned. This simplifies
 \ the recursive cases.
 : (assoc) ( k v node|nil -- delta-size node' )
-  dup nil? IF drop leaf 1 swap EXIT THEN
+  dup nil? IF drop   leaf   1 swap EXIT THEN
 
   2 pick over nkey compare ?dup 0= IF ( k v node )
     \ Replacing this node
-    nip clone-value 0 swap ( 0 node' ) EXIT THEN
+    clone-value nip 0 swap ( 0 node' ) EXIT THEN
 
   \ ( k v node -1|1 )
   0< IF \ Left side
@@ -152,7 +152,6 @@ CREATE empty-map
 \ Iteration ==================================================================
 \ Does an in-order traversal of the whole map, calling xt with each node.
 VARIABLE (eachm-xt)
-: >var< ( new var -- old ) dup @ -rot ! ;
 
 \ In-order traversal. Make sure when EXECUTEing the xt there's nothing else on
 \ the stack.
@@ -163,11 +162,11 @@ VARIABLE (eachm-xt)
   R> right recurse ;
 
 
-\ xt is ( ... k v -- ... ) and has access to the stack below the args to eachm.
-: eachm ( ... xt map -- ... )
+\ xt is ( ... k v -- ... ) and has access to the stack below the args to each.
+:noname ( ... xt map -- ... )
   swap (eachm-xt) >var< >R  ( map )
   root (eachm)
-  R> (eachm-xt) ! ;
+  R> (eachm-xt) ! ;   %map method-of each
 
 
 \ Printing ===================================================================
@@ -180,7 +179,7 @@ VARIABLE (later-node?)
 
 :noname ( map -- )
   (later-node?) @ >R   (later-node?) off
-  [char] { pinch   ['] pr-node swap eachm   [char] } pinch
+  [char] { pinch   ['] pr-node swap each   [char] } pinch
   R> (later-node?) ! ;   %map method-of (pr-str)
 
 
