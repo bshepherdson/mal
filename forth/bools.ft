@@ -1,0 +1,13 @@
+
+CREATE mal-true    %bool , -1 ,
+CREATE mal-false   %bool ,  0 ,
+
+: >bool ( ? -- bool ) IF mal-true ELSE mal-false THEN ;
+
+\ Print
+:noname ( bool -- )
+  mal-true = IF S" true" ELSE S" false" THEN prn-type ; %bool method-of (pr-str)
+
+\ Compare - True sorts before false.
+:noname ( x y -- -1|0|1 )
+  %?cmp   cell+ @ swap cell+ @ swap cmp ; %bool method-of compare

@@ -1,0 +1,2 @@
+:noname %?cmp 2drop 0 ; %nil method-of compare
+:noname drop zero     ; %nil method-of mal-count

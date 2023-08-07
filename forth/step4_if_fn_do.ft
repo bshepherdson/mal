@@ -1,0 +1,81 @@
+REQUIRE utils.ft
+REQUIRE types.ft
+REQUIRE meta.ft
+REQUIRE iteration.ft
+REQUIRE compare.ft
+REQUIRE printer.ft
+REQUIRE numbers.ft
+REQUIRE vectors.ft
+REQUIRE lists.ft
+REQUIRE maps.ft
+REQUIRE env.ft
+REQUIRE strings.ft
+REQUIRE bools.ft
+REQUIRE nil.ft
+REQUIRE functions.ft
+REQUIRE reader.ft
+REQUIRE errors.ft
+REQUIRE core.ft
+REQUIRE special-forms.ft
+
+: ?stack-clear ( -- )
+  depth ABORT" Stack not empty on init - :noname without method-of etc.?" ;
+?stack-clear
+
+\ REPL =======================================================================
+: READ  ( c-addr u -- form )     read-str-raw ;
+
+\ eval-ast is a MULTI
+
+: eval-list ( env form -- form )
+  dup emptyl? IF nip EXIT THEN \ Return an empty list unchanged.
+  eval-ast      \ ( form ) a new, evaluated list.
+  dup tail swap head ( argv fn )
+  exec-fn ;
+
+\ EVAL
+:noname ( env form -- form )
+  depth >R
+  \ ." EVALing:  " dup pr-str type cr
+  ?special-form
+  \ ." SP-forms: " dup pr-str type cr
+  dup list? IF eval-list ELSE eval-ast THEN
+
+  depth R> -  -1 <> IF ." stack error" 200 throw THEN
+  ;      IS EVAL
+
+: PRINT ( form     -- c-addr u ) print-readably? on   pr-str ;
+
+: rep ( c-addr u -- c-addr u )
+  READ
+  repl-env @ swap EVAL
+  PRINT ;
+
+\ Defining stuff in Mal itself.
+S" (def! not (fn* [a] (if a false true)))" rep 2drop
+
+S" (def! fib (fn* (N) (if (= N 0) 1 (if (= N 1) 1 (+ (fib (- N 1)) (fib (- N 2)))))))" rep 2drop
+
+\ Main loop ==================================================================
+\ Gforth's ACCEPT outputs an extra space which breaks Mal's test scripts
+\ : mal-accept ( c-addr u -- +n )
+\   drop dup >R
+\   BEGIN
+\     key
+\     dup  4 = IF drop R> 2drop 0 EXIT THEN \ Return 0 if we got EOF (even if we parsed)
+\     dup 13 = IF drop R> - EXIT THEN
+\     dup emit
+\     over c!   char+
+\   AGAIN ;
+CREATE input 256 chars allot align
+
+: mal-accept ( c-addr u -- +n good? ) stdin read-line throw ;
+
+: main ( -- )
+  BEGIN
+    ." user> "   input 255 mal-accept
+  WHILE ( len )
+    input swap   ['] rep catch   ?dup IF error. ELSE type THEN cr
+  REPEAT ;
+
+main

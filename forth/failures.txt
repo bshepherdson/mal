@@ -1,0 +1,138 @@
+TEST: (pr-str "") -> ['',"\"\""] -> FAIL (line 285):
+    Expected : '(pr-str "")\r\n"\\"\\""'
+    Got      : '(pr-str "")\r\n""""'
+TEST: (pr-str "abc") -> ['',"\"abc\""] -> FAIL (line 288):
+    Expected : '(pr-str "abc")\r\n"\\"abc\\""'
+    Got      : '(pr-str "abc")\r\n""abc""'
+TEST: (pr-str "abc  def" "ghi jkl") -> ['',"\"abc  def\" \"ghi jkl\""] -> FAIL (line 291):
+    Expected : '(pr-str "abc  def" "ghi jkl")\r\n"\\"abc  def\\" \\"ghi jkl\\""'
+    Got      : '(pr-str "abc  def" "ghi jkl")\r\n""abc  def" "ghi jkl""'
+TEST: (pr-str "\"") -> ['',"\"\\\"\""] -> FAIL (line 294):
+    Expected : '(pr-str "\\"")\r\n"\\"\\\\\\"\\""'
+    Got      : '(pr-str "\\"")\r\n""\\"""'
+TEST: (pr-str (list 1 2 "abc" "\"") "def") -> ['',"(1 2 \"abc\" \"\\\"\") \"def\""] -> FAIL (line 297):
+    Expected : '(pr-str (list 1 2 "abc" "\\"") "def")\r\n"(1 2 \\"abc\\" \\"\\\\\\"\\") \\"def\\""'
+    Got      : '(pr-str (list 1 2 "abc" "\\"") "def")\r\n"(1 2 "abc" "\\"") "def""'
+TEST: (pr-str "abc\ndef\nghi") -> ['',"\"abc\\ndef\\nghi\""] -> FAIL (line 300):
+    Expected : '(pr-str "abc\\ndef\\nghi")\r\n"\\"abc\\\\ndef\\\\nghi\\""'
+    Got      : '(pr-str "abc\\ndef\\nghi")\r\n""abc\\ndef\\nghi""'
+TEST: (pr-str "abc\\def\\ghi") -> ['',"\"abc\\\\def\\\\ghi\""] -> FAIL (line 303):
+    Expected : '(pr-str "abc\\\\def\\\\ghi")\r\n"\\"abc\\\\\\\\def\\\\\\\\ghi\\""'
+    Got      : '(pr-str "abc\\\\def\\\\ghi")\r\n""abc\\\\def\\\\ghi""'
+TEST: (pr-str (list)) -> ['',"()"] -> SUCCESS
+Testing str
+TEST: (str) -> ['',""] -> SUCCESS
+TEST: (str "") -> ['',""] -> FAIL (line 314):
+    Expected : '(str "")\r\n""'
+    Got      : '(str "")\r\n""""'
+TEST: (str "abc") -> ['',"abc"] -> FAIL (line 317):
+    Expected : '(str "abc")\r\n"abc"'
+    Got      : '(str "abc")\r\n""abc""'
+TEST: (str "\"") -> ['',"\""] -> FAIL (line 320):
+    Expected : '(str "\\"")\r\n"\\""'
+    Got      : '(str "\\"")\r\n""\\"""'
+TEST: (str 1 "abc" 3) -> ['',"1abc3"] -> FAIL (line 323):
+    Expected : '(str 1 "abc" 3)\r\n"1abc3"'
+    Got      : '(str 1 "abc" 3)\r\n"1"abc"3"'
+TEST: (str "abc  def" "ghi jkl") -> ['',"abc  defghi jkl"] -> FAIL (line 326):
+    Expected : '(str "abc  def" "ghi jkl")\r\n"abc  defghi jkl"'
+    Got      : '(str "abc  def" "ghi jkl")\r\n""abc  def""ghi jkl""'
+TEST: (str "abc\ndef\nghi") -> ['',"abc\ndef\nghi"] -> FAIL (line 329):
+    Expected : '(str "abc\\ndef\\nghi")\r\n"abc\\ndef\\nghi"'
+    Got      : '(str "abc\\ndef\\nghi")\r\n""abc\\ndef\\nghi""'
+TEST: (str "abc\\def\\ghi") -> ['',"abc\\def\\ghi"] -> FAIL (line 332):
+    Expected : '(str "abc\\\\def\\\\ghi")\r\n"abc\\\\def\\\\ghi"'
+    Got      : '(str "abc\\\\def\\\\ghi")\r\n""abc\\\\def\\\\ghi""'
+TEST: (str (list 1 2 "abc" "\"") "def") -> ['',"(1 2 abc \")def"] -> FAIL (line 335):
+    Expected : '(str (list 1 2 "abc" "\\"") "def")\r\n"(1 2 abc \\")def"'
+    Got      : '(str (list 1 2 "abc" "\\"") "def")\r\n"(1 2 "abc" "\\"")"def""'
+TEST: (str (list)) -> ['',"()"] -> SUCCESS
+Testing prn
+TEST: (prn) -> ['\r\n',nil] -> SUCCESS
+TEST: (prn "") -> ['""\r\n',nil] -> SUCCESS
+TEST: (prn "abc") -> ['"abc"\r\n',nil] -> SUCCESS
+TEST: (prn "abc  def" "ghi jkl") -> ['"abc  def" "ghi jkl"\r\n',*] -> SUCCESS
+TEST: (prn "\"") -> ['"\\""\r\n',nil] -> SUCCESS
+TEST: (prn "abc\ndef\nghi") -> ['"abc\\ndef\\nghi"\r\n',nil] -> SUCCESS
+TEST: (prn "abc\\def\\ghi") -> ['"abc\\\\def\\\\ghi"\r\n',*] -> SUCCESS
+TEST: nil -> ['',*] -> SUCCESS
+TEST: (prn (list 1 2 "abc" "\"") "def") -> ['(1 2 "abc" "\\"") "def"\r\n',nil] -> SUCCESS
+Testing println
+TEST: (println) -> ['\r\n',nil] -> SUCCESS
+TEST: (println "") -> ['\r\n',nil] -> FAIL (line 380):
+    Expected : '(println "")\r\n\r\nnil'
+    Got      : '(println "")\r\n""\r\nnil'
+TEST: (println "abc") -> ['abc\r\n',nil] -> FAIL (line 384):
+    Expected : '(println "abc")\r\nabc\r\nnil'
+    Got      : '(println "abc")\r\n"abc"\r\nnil'
+TEST: (println "abc  def" "ghi jkl") -> ['abc  def ghi jkl\r\n',*] -> SUCCESS
+TEST: (println "\"") -> ['"\r\n',nil] -> FAIL (line 391):
+    Expected : '(println "\\"")\r\n"\r\nnil'
+    Got      : '(println "\\"")\r\n"\\""\r\nnil'
+TEST: (println "abc\ndef\nghi") -> ['abc\r\ndef\r\nghi\r\n',nil] -> FAIL (line 397):
+    Expected : '(println "abc\\ndef\\nghi")\r\nabc\r\ndef\r\nghi\r\nnil'
+    Got      : '(println "abc\\ndef\\nghi")\r\n"abc\\ndef\\nghi"\r\nnil'
+TEST: (println "abc\\def\\ghi") -> ['abc\\def\\ghi\r\n',nil] -> FAIL (line 401):
+    Expected : '(println "abc\\\\def\\\\ghi")\r\nabc\\def\\ghi\r\nnil'
+    Got      : '(println "abc\\\\def\\\\ghi")\r\n"abc\\\\def\\\\ghi"\r\nnil'
+TEST: (println (list 1 2 "abc" "\"") "def") -> ['(1 2 abc ") def\r\n',nil] -> FAIL (line 405):
+    Expected : '(println (list 1 2 "abc" "\\"") "def")\r\n(1 2 abc ") def\r\nnil'
+    Got      : '(println (list 1 2 "abc" "\\"") "def")\r\n(1 2 "abc" "\\"") "def"\r\nnil'
+
+-------- Optional Functionality --------
+Testing keywords
+TEST: (= :abc :abc) -> ['',true] -> SUCCESS
+TEST: (= :abc :def) -> ['',false] -> SUCCESS
+TEST: (= :abc ":abc") -> ['',false] -> SUCCESS
+Testing vector truthiness
+TEST: (if [] 7 8) -> ['',7] -> SUCCESS
+Testing vector printing
+TEST: (pr-str [1 2 "abc" "\""] "def") -> ['',"[1 2 \"abc\" \"\\\"\"] \"def\""] -> FAIL (line 425):
+    Expected : '(pr-str [1 2 "abc" "\\""] "def")\r\n"[1 2 \\"abc\\" \\"\\\\\\"\\"] \\"def\\""'
+    Got      : '(pr-str [1 2 "abc" "\\""] "def")\r\n"[1 2 "abc" "\\""] "def""'
+TEST: (pr-str []) -> ['',"[]"] -> SUCCESS
+TEST: (str [1 2 "abc" "\""] "def") -> ['',"[1 2 abc \"]def"] -> FAIL (line 431):
+    Expected : '(str [1 2 "abc" "\\""] "def")\r\n"[1 2 abc \\"]def"'
+    Got      : '(str [1 2 "abc" "\\""] "def")\r\n"[1 2 "abc" "\\""]"def""'
+TEST: (str []) -> ['',"[]"] -> SUCCESS
+Testing vector functions
+TEST: (count [1 2 3]) -> ['',3] -> FAIL (line 439):
+    Expected : '(count [1 2 3])\r\n3'
+    Got      : '(count [1 2 3])\r\nexpected \'"\', got EOF\r\n'
+TEST: (empty? [1 2 3]) -> ['',false] -> SUCCESS
+TEST: (empty? []) -> ['',true] -> FAIL (line 443):
+    Expected : '(empty? [])\r\ntrue'
+    Got      : '(empty? [])\r\nfalse'
+TEST: (list? [4 5 6]) -> ['',false] -> SUCCESS
+Testing vector equality
+TEST: (= [] (list)) -> ['',true] -> FAIL (line 449):
+    Expected : '(= [] (list))\r\ntrue'
+    Got      : '(= [] (list))\r\nfalse'
+TEST: (= [7 8] [7 8]) -> ['',true] -> FAIL (line 451):
+    Expected : '(= [7 8] [7 8])\r\ntrue'
+    Got      : '(= [7 8] [7 8])\r\nfalse'
+TEST: (= (list 1 2) [1 2]) -> ['',true] -> FAIL (line 453):
+    Expected : '(= (list 1 2) [1 2])\r\ntrue'
+    Got      : '(= (list 1 2) [1 2])\r\nfalse'
+TEST: (= (list 1) []) -> ['',false] -> SUCCESS
+TEST: (= [] [1]) -> ['',false] -> FAIL (line 457):
+    Expected : '(= [] [1])\r\nfalse'
+    Got      : '(= [] [1])\r\nvector index out of bounds\r\n'
+TEST: (= 0 []) -> ['',false] -> SUCCESS
+TEST: (= [] 0) -> ['',false] -> SUCCESS
+TEST: (= [] "") -> ['',false] -> SUCCESS
+TEST: (= "" []) -> ['',false] -> SUCCESS
+Testing vector parameter lists
+TEST: ( (fn* [] 4) ) -> ['',4] -> FAIL (line 469):
+    Expected : '( (fn* [] 4) )\r\n4'
+    Got      : '( (fn* [] 4) )\r\nvector index out of bounds\r\n'
+TEST: ( (fn* [f x] (f x)) (fn* [a] (+ 1 a)) 7) -> ['',8] -> SUCCESS
+Nested vector/list equality
+TEST: (= [(list)] (list [])) -> ['',true] -> FAIL (line 475):
+    Expected : '(= [(list)] (list []))\r\ntrue'
+    Got      : '(= [(list)] (list []))\r\nfalse'
+TEST: (= [1 2 (list 3 4 [5 6])] (list 1 2 [3 4 (list 5 6)])) -> ['',true] -> FAIL (line 477):
+    Expected : '(= [1 2 (list 3 4 [5 6])] (list 1 2 [3 4 (list 5 6)]))\r\ntrue'
+    Got      : '(= [1 2 (list 3 4 [5 6])] (list 1 2 [3 4 (list 5 6)]))\r\nfalse'
+
+

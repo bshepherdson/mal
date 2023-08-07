@@ -1,0 +1,7 @@
+VARIABLE (each-xt)
+: each ( ... xt seqable -- ... )
+  swap (each-xt) >var< >R    ( seqable   R: old-xt )
+  seq BEGIN dup some? WHILE
+    dup >R   first   (each-xt) @ execute   R> rest
+  REPEAT drop   R> (each-xt) ! ;
+
