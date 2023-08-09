@@ -3,3 +3,6 @@
 : alloc-typed ( %type length -- value ) cells allocate throw   tuck ! ;
 
 : >var< ( new var -- old ) dup @ -rot ! ;
+
+\ Double exit - this returns from the caller of the caller of BAIL
+: bail ( -- ) R> R> 2drop ;

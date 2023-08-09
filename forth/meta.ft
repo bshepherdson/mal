@@ -18,6 +18,7 @@
 : multi ( "name" --    X: mal-value -- mal-value )
     CREATE   #types 0 DO 0 , LOOP   latest ,
   DOES> ( mal-value 'xts ) over % cells over + @ ( mal-value 'xts xt )
+    \ over #types cells + @ id. 2 pick % . cr
     dup IF nip execute ELSE drop (no-impl) THEN ;
 
 : method-of ( xt %type "name" -- ) cells ' >body + ! ;
@@ -25,7 +26,6 @@
 
 \ Declaring some multi-methods early so each type can implement them.
 multi compare ( x y -- -1 | 0 | 1 ) \ -1 -> x < y; 1 -> x > y
-: equal? ( x y -- ? ) compare 0= ;
 
 
 multi eval-ast ( env form -- form )
@@ -33,10 +33,27 @@ multi eval-ast ( env form -- form )
 :noname nip ;
   dup %nil      method-of eval-ast
   dup %number   method-of eval-ast
+  dup %bool     method-of eval-ast
   dup %string   method-of eval-ast
   dup %keyword  method-of eval-ast
+  dup %builtin  method-of eval-ast
       %function method-of eval-ast
 
 DEFER EVAL
 
-multi each ( ... xt coll -- ... ) \ Calls xt with each element of the collection.
+multi seq
+multi first
+multi rest
+
+:noname ;
+  dup %list-seq   method-of seq
+  dup %vector-seq method-of seq
+  dup %map-seq    method-of seq
+
+  \ Nil acts like a seq that returns nil for everything.
+  dup %nil        method-of seq
+  dup %nil        method-of first
+      %nil        method-of rest
+
+multi mal-count
+

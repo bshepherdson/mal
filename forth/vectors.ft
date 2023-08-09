@@ -49,8 +49,8 @@ CREATE empty-vector %vector , 0 ,
 
 \ Comparison
 :noname ( x y -- -1|0|1 )
-  %?cmp   over countv over countv   min 0 DO ( x y )
-    over i swap getv   over i swap getv   cmp ?dup IF ( x y -1|1 )
+  %?cmp   over countv over countv   min 0 ?DO ( x y )
+    over i swap getv   over i swap getv   compare ?dup IF ( x y -1|1 )
       >R 2drop R> UNLOOP EXIT THEN
   LOOP
   \ Same prefix, fall back to comparing the lengths.
@@ -68,16 +68,30 @@ CREATE empty-vector %vector , 0 ,
   R@ countv 0 ?DO
     i cells   2over   ( env raw cooked   offset env raw )
     rot + @           ( env raw cooked   env value )
-    eval              ( env raw cooked   eval'd )
+    EVAL              ( env raw cooked   eval'd )
     over i cells + !  ( env raw cooked )
   LOOP 2drop drop ( ) R> ; %vector method-of eval-ast
 
-\ Each
-VARIABLE (eachv-xt)
-:noname ( ... xt vector -- )
-  swap (eachv-xt) >var< >R   ( ... vector   R: old-xt )
-  dup countv 0 DO
-    i over >R   ( ... vector i   R: old-xt vector )
-    swap getv   (eachv-xt) @ execute   R>
-  LOOP drop   R> (eachv-xt) ! ; %vector method-of each
+:noname countv number ;   %vector     method-of mal-count
 
+\ Sequences
+\ Vector-seqs have three cells: [%vector-seq | index | vector ]
+: (vecseq) ( vector i -- vec-seq|nil )
+  2dup swap countv < IF
+    %vector-seq 3 alloc-typed   ( vector i vec-seq )
+    dup >R cell+ 2! R>
+  ELSE 2drop nil THEN ;
+
+: (vecseq@) ( vec-seq -- vector i ) cell+ 2@ ;
+
+\ Seq
+:noname ( vector -- vec-seq ) 0 (vecseq) ;               %vector method-of seq
+\ First
+:noname ( vec-seq -- value )   (vecseq@) swap getv ; %vector-seq method-of first
+\ Rest
+:noname ( vec-seq -- vec-seq ) (vecseq@) 1+ (vecseq) ; %vector-seq method-of rest
+\ Count
+:noname ( vec-seq -- number )
+  dup 2 cells + @ countv
+  cell+ @ -
+  number ;                                     %vector-seq method-of mal-count

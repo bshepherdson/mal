@@ -21,5 +21,3 @@ VARIABLE print-readably?
 
 
 :noname drop S" nil"         prn-type ; %nil      method-of (pr-str)
-:noname drop S" #<function>" prn-type ; %function method-of (pr-str)
-

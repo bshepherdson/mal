@@ -27,7 +27,6 @@ CREATE empty-list %LIST , 0 , 0 ,
   R@ l>head !
   R> ;
 
-: first  ( list -- value ) head ;
 : second ( list -- value ) tail head ;
 : third  ( list -- value ) tail tail head ;
 
@@ -42,13 +41,21 @@ CREATE empty-list %LIST , 0 , 0 ,
     tail
   -1 +LOOP drop ;
 
-\ Each
-VARIABLE (eachl-xt)
-:noname ( ... xt list -- )
-  swap (eachl-xt) >var< >R   ( list    R: old-xt )
-  BEGIN dup emptyl? 0= WHILE
-    dup >R   head   (eachl-xt) @ execute   R> tail
-  REPEAT drop   R> (eachl-xt) ! ;   %list method-of each
+\ Sequence
+\ Seq ( list -- seq )
+\ List seqs are easy - just a pointer to the list. But return nil if empty.
+:noname
+  dup emptyl? IF drop nil EXIT THEN
+  %list-seq 2 alloc-typed ( list seq )
+  tuck cell+ ! ; %list method-of seq
+
+\ First ( list-seq -- value )
+:noname cell+ @ head ; %list-seq method-of first
+\ Rest  ( list-seq -- list-seq )
+:noname cell+ @ tail seq ; %list-seq method-of rest
+\ NOTE: If the tail is the empty list, seq on it will return nil.
+
+: lseq>list ( list-seq -- list ) cell+ @ ;
 
 \ Printing
 : (pr-list-each) ( index value -- index' )
@@ -67,5 +74,18 @@ VARIABLE (eachl-xt)
   2dup head          ( env list env head )
   EVAL               ( env list new-head )
   -rot tail recurse  ( new-head new-tail )
-  cons ; %list method-of eval-ast
+  cons               ( list' ) ;                %list method-of eval-ast
 
+
+:noname countl number ;   %list method-of mal-count
+
+\ Compare
+:noname ( x y -- -1|0|1 )
+  %?cmp   seq swap seq swap   compare ; %list method-of compare
+
+:noname ( x y -- -1|0|1 )
+  %?cmp
+  BEGIN over some? over some? and WHILE
+    over first over first compare ?dup IF >R 2drop R> EXIT THEN
+    rest swap rest swap
+  REPEAT 2drop 0 ; %list-seq method-of compare

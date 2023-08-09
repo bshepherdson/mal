@@ -3,8 +3,10 @@
 
 \ Compares two Forth numbers on the stack. DOUBLE EXITs if nonzero!
 : ?cmp ( val1 val2 n1 n2 -- val1 val2 |   -1 | 1 )
-  cmp ?dup IF ( val1 val2 -1|1 ) >R 2drop R> R> drop THEN ;
+  cmp ?dup IF ( val1 val2 -1|1 ) >R 2drop R> bail THEN ;
 
 \ ?cmp on the %types of two Mal values.
 : %?cmp ( val1 val2 -- val1 val2   | -1 | 1 )
-  over % over % cmp ?dup IF ( val1 val2 -1|1 ) >R 2drop R> R> drop THEN ;
+  over % over % cmp ?dup IF ( val1 val2 -1|1 ) >R 2drop R> bail THEN ;
+
+: equal? ( x y -- ? ) compare 0= ;

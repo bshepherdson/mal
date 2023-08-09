@@ -18,10 +18,8 @@ nil new-env repl-env !
 : bin-arithmetic ( list xt -- result )
   >R dup head num-value   swap tail head num-value   R> execute number ;
 
-\ Builtins ===================================================================
 \ Builtins all take their args as a Mal list.
-
-\ -- Arithmetic ==============================================================
+\ Arithmetic =================================================================
 \ +
 : [+] ( acc number -- acc' ) num-value + ;
 :noname ( argv -- number ) 0   ['] [+]   reduce number ; builtin: +
@@ -34,7 +32,69 @@ nil new-env repl-env !
 \ /   - Using Forth's integer division.
 :noname ( argv -- number ) ['] / bin-arithmetic        ; builtin: /
 
-\ -- Construction ============================================================
+\ Comparisons ================================================================
+\ =
+:noname ( argv -- bool )
+  dup head swap second compare 0= >bool                ; builtin: =
+
+: bin-cmp ( argv xt -- bool )
+  >R dup head num-value swap second num-value R> execute >bool ;
+
+\ < <= > >=
+:noname ['] <  bin-cmp                                 ; builtin: <
+:noname ['] <= bin-cmp                                 ; builtin: <=
+:noname ['] >  bin-cmp                                 ; builtin: >
+:noname ['] >= bin-cmp                                 ; builtin: >=
+
+\ Strings and Printing =======================================================
+VARIABLE (sep)
+: (noop) ;
+: (prn-space) bl pinch ;
+
+: (sep-none!)  ['] (noop)      (sep) ! ;
+: (sep-space!) ['] (prn-space) (sep) ! ;
+
+(sep-none!)
+
+: (pr-str-each) ( cnt x -- cnt' ) over IF (sep) @ execute THEN   (pr-str)   1+ ;
+
+: [pr-str] ( list -- c-addr u )
+  prn0
+  0 ['] (pr-str-each) rot each
+  drop prn>str ;
+
+\ (pr-str & args)
+:noname ( argv -- string )
+  print-readably? on   (sep-space!)   [pr-str] >string     ; builtin: pr-str
+
+\ (str & args)
+:noname ( argv -- str )
+  print-readably? off   (sep-none!)   [pr-str] >string     ; builtin: str
+
+\ (prn & args)
+:noname ( argv -- str )
+  print-readably? on   (sep-space!)   [pr-str] type cr nil ; builtin: prn
+
+\ (println & args)
+:noname
+  print-readably? off  (sep-space!)   [pr-str] type cr nil ; builtin: println
+
+
+\ Lists ======================================================================
+\ (list & contents)
+:noname                                                 ; builtin: list
+
+\ (list? x)
+:noname head list? >bool                                ; builtin: list?
+
+\ (empty? x)
+:noname head seq nil? >bool                             ; builtin: empty?
+
+\ (count x)
+:noname head mal-count                                  ; builtin: count
+
+
+\ Construction ===============================================================
 \ (hash-map k1 v1 k2 v2 ...)
 : [hash-map1] ( map list -- map' )
   dup emptyl? IF drop EXIT THEN
@@ -51,4 +111,6 @@ nil new-env repl-env !
 \ (env)
 :noname drop repl-env @                                ; builtin: env
 \ (sum coll)
-:noname first   0 ['] [+]   rot each   number          ; builtin: sum
+:noname seq first   0 ['] [+]   rot each   number      ; builtin: sum
+\ (quit x)
+:noname head quit                                      ; builtin: quit

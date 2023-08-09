@@ -5,13 +5,15 @@
 VARIABLE special-forms
 nil new-env special-forms !
 
+\ Repeatedly matches special forms until none matches.
 \ Returns the original env and list if no special form matches.
 : ?special-form ( env list -- env' list' )
-  dup list? 0= IF EXIT THEN
-  dup emptyl?  IF EXIT THEN
-  dup head special-forms @ env-find  ( list value )
-  dup some? IF ( env list sp-form-xt ) execute EXIT THEN
-  drop ;
+  BEGIN
+    dup list? 0= IF EXIT THEN
+    dup emptyl?  IF EXIT THEN
+    dup head special-forms @ env-find  ( env list value )
+    dup some? IF execute ELSE drop EXIT THEN
+  AGAIN ;
 
 : special-form: ( xt "name" -- )
   parse-name >symbol swap   special-forms @ env-set   special-forms ! ;
@@ -27,30 +29,36 @@ nil new-env special-forms !
   env-set R> ; special-form: def!
 
 \ (let* (binding value ...) body) ============================================
-VARIABLE (bind-key)
-
-: (let-bind) ( env key|value -- env' )
-  (bind-key) @ IF \ Have a key, bind to this value after EVALing it.
-    over >R EVAL R> ( value-eval'd env )
-    (bind-key) @ -rot ( k v env )
-    env-set
-    0 (bind-key) !
-  ELSE \ This is the key, just save it.
-    (bind-key) !
-  THEN ;
-
-: with-bindings ( env1 bindings -- env2 )
-  \ Bindings might be a vector or a list; abstract it with each.
-  0 (bind-key) >var< >R
-  ['] (let-bind) swap each
-  R> (bind-key) ! ;
-
 :noname ( env list -- env' body-result )
   \ Create a new environment for the let bindings, descending from the input.
-  over new-env       ( outer-env list let-env )
-  over second        ( outer-env list let-env binding-list )
-  with-bindings      ( outer-env list bound-env )
-  over third         ( outer-env list bound-env body )
-  EVAL               ( outer-env list result )
-  nip ;   special-form: let*
+  swap new-env       ( list let-env )
+  over second        ( list let-env binding-list )
+  env-binding        ( list bound-env )
+  swap third ;       ( bound-env body )             special-form: let*
 
+\ (do body...) ===============================================================
+:noname ( env list -- env' last-result )
+  \ This loop ends one early to enable TCO.
+  tail seq BEGIN dup rest some? WHILE ( env seq )
+    2dup first EVAL drop  ( env seq )
+    rest
+  REPEAT first ( env final-ast ) ;                  special-form: do
+
+\ (if cond true false)
+:noname ( env list -- env' result )
+  \ ." start of if: " dup pr-str type 4 spaces hex.s cr
+  tail   dup tail >R    ( env l-cond   R: l-true )
+  2dup head EVAL nip    ( env result   R: l-true )
+  \ hex.s cr
+  R> swap               ( env l-true result )
+  dup nil? swap   mal-false = or IF tail THEN \ Falsy case ( env list )
+  dup emptyl? IF drop nil ELSE head THEN
+  \ ." end of if: " dup pr-str type 4 spaces hex.s cr
+  ( env ast ) ; special-form: if
+
+\ (fn* (params)|[params] body)
+:noname ( env list -- env' fn )
+  over swap    ( env env list )
+  dup second   ( env env list params )
+  swap third   ( env env params body )
+  function     ( env fn ) ;                         special-form: fn*

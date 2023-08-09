@@ -155,7 +155,10 @@ VARIABLE negated?
 \ -- Other readers ===========================================================
 \ Strip off the quotes and return as a string.
 \ TODO: Handle escaping - the backslashes should be dropped as it's copied in.
-: read-str-lit ( c-addr u -- string ) 1 /string   1- >string   +token ;
+: read-str-lit ( c-addr u -- string )
+  1 /string   1-
+  (unescape?) on
+  >string   +token ;
 
 \ Starts pointing at : but that's not part of the string, so move past it.
 : read-keyword ( c-addr u -- keyword ) +token   1 /string >keyword ;
@@ -187,6 +190,16 @@ DEFER [hash-map]
   \ ." final: " dup pr-str type cr
   ;
 
+\ Checks the special symbols: nil, true, false.
+: ?named ( value c-addr u -- value -1 | )
+  token str= IF +token -1 bail ELSE drop THEN ;
+
+: ?named-value ( -- value -1 | 0 )
+  nil       S" nil"   ?named
+  mal-true  S" true"  ?named
+  mal-false S" false" ?named
+  0 ;
+
 \ TODO: Various reader macros like @, ' and ~
 : read-atom ( -- value )
   \ First check the things with obvious prefixes, like strings and keywords.
@@ -197,7 +210,8 @@ DEFER [hash-map]
       [char] { = IF      read-map     EXIT THEN
   \ Numbers start with 0x or 0b, a digit, or -
   ?read-number IF EXIT THEN
-  \ If we're still here, it's a symbol.
+  \ If we're still here, it looks like a symbol.
+  ?named-value IF EXIT THEN
   token+ >symbol ;
 
 

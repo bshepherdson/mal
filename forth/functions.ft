@@ -24,17 +24,21 @@
 : builtin?  ( value -- ? ) % %builtin  = ;
 : fn? ( value -- ? ) dup function? swap builtin? or ;
 
-: exec-function ( args function -- result )
+: exec-function ( env args function -- env' form )
   \ Need to create a new environment for the function, which descends from the
   \ closed environment with the params and arguments layered on top.
-  dup >R   f>env @ swap   R@ f>params @ swap ( env params args   R: fn )
-  env-zipping ( env   R: fn )
-  R> f>body @ ( env body ) EVAL ;
+  rot drop
+  dup >R   f>env @ swap  ( closure-env args          R: fn )
+  R@ f>params @ swap     ( closure-env params args   R: fn )
+  env-zipping            ( env   R: fn )
+  R> f>body @            ( env body ) ;
 
 : exec-builtin  ( args builtin  -- result ) cell+ @ execute ;
 
-: exec-fn ( args fn -- result )
-  dup builtin? IF exec-builtin ELSE exec-function THEN ;
+\ To support TCO, this returns a break? flag, either true with a computed result
+\ or false if there's still forms to evaluate.
+: exec-fn ( env args fn -- result true | env form false )
+  dup builtin? IF exec-builtin nip true ELSE exec-function false THEN ;
 
 :noname drop S" #<builtin>"  prn-type ; %builtin  method-of (pr-str)
 :noname drop S" #<function>" prn-type ; %function method-of (pr-str)

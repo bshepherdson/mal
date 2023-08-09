@@ -149,33 +149,49 @@ CREATE empty-map
 : get-or ( default k map -- value|default ) root (get) ;
 : get ( k map -- value|nil ) nil -rot get-or ;
 
-\ Iteration ==================================================================
+\ Sequences ==================================================================
 \ Does an in-order traversal of the whole map, calling xt with each node.
-VARIABLE (eachm-xt)
+\ A map-seq is complicated - it effectively maintains a zipper of map-seqs.
+\ It points at the next node to print out.
+\ parent is nil for the root map-seq, which signals the end.
+\ [ %map-seq | this-node | parent-map-seq ]
+: (mapseq) ( node parent -- map-seq )
+  %map-seq 3 alloc-typed >R
+  R@ 2 cells + !
+  R@ cell+ !
+  R> ;
 
-\ In-order traversal. Make sure when EXECUTEing the xt there's nothing else on
-\ the stack.
-: (eachm) ( ... node -- ... )
-  dup nil? IF drop EXIT THEN
-  dup >R left recurse    ( ... R: node )
-  R@ nkey R@ nvalue (eachm-xt) @ execute ( ... R: node )
-  R> right recurse ;
+: (leftmost) ( node parent-map-seq -- map-seq )
+  BEGIN over some? WHILE \ Bail if we've hit nil, can't go farther left.
+    2dup (mapseq)  ( node parent-seq new-seq )
+    nip swap left swap
+  REPEAT ( nil map-seq ) nip ;
 
+\ Seq
+:noname ( map -- map-seq ) root nil (leftmost) ;   %map method-of seq
 
-\ xt is ( ... k v -- ... ) and has access to the stack below the args to each.
-:noname ( ... xt map -- ... )
-  swap (eachm-xt) >var< >R  ( map )
-  root (eachm)
-  R> (eachm-xt) ! ;   %map method-of each
+\ First - just the current node, whole.
+:noname ( map-seq -- node ) cell+ @ ;              %map-seq method-of first
+\ Rest - move to the leftmost node of our right branch.
+\ If we have no right branch, return the parent map-seq.
+:noname ( map-seq -- map-seq )
+  dup 2 cells + @   swap cell+ @ ( parent-map-seq node )
+  right dup nil? IF drop EXIT THEN \ Return the parent
+  ( parent-map-seq right )
+  swap (leftmost) ;                                %map-seq method-of rest
+\ Count
+: [map-seq-count] drop 1+ ;
+:noname ( map-seq -- number )
+  0 ['] [map-seq-count] rot each   number ; %map-seq method-of mal-count
 
 
 \ Printing ===================================================================
 VARIABLE (later-node?)
 
-: pr-node ( key value -- )
+: pr-node ( node -- )
   (later-node?) @ IF [char] , pinch bl pinch THEN
   (later-node?) on
-  swap (pr-str) bl pinch (pr-str) ;
+  dup nkey (pr-str)   bl pinch   nvalue (pr-str) ;
 
 :noname ( map -- )
   (later-node?) @ >R   (later-node?) off
@@ -192,9 +208,12 @@ VARIABLE (later-node?)
 
 : pr-tree ( map -- ) root 0 swap pr-tree-node ;
 
-\ Eval
+\ Eval =======================================================================
 :noname ( env map -- map' )
   \ Maps are never really Eval'd! They are read by the reader into
   \ (hash-map k1 v1 k2 v2 ...) so if a real map is EVAL'd it's already eval'd and can
   \ just be returned.
   nip ; %map method-of eval-ast
+
+\ Count
+:noname ( map -- number ) countm number ;    %map method-of mal-count

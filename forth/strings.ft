@@ -9,9 +9,22 @@
 : s>str  ( string -- c-addr u ) dup s>data swap length ;
 
 \ Printer
-\ TODO: Handle escapes and print-readably.
+: ?escaped ( ch -- ch' ? )
+  dup 10 =       IF drop 'n' true EXIT THEN
+  dup [char] " =   over [char] \ = or ;
+
+: str-pr-readably ( c-addr u -- )
+  [CHAR] " pinch
+  0 ?DO ( c-addr )
+    dup i + c@
+    ?escaped IF [char] \ pinch THEN
+    pinch
+  LOOP drop
+  [CHAR] " pinch ;
+
 :noname ( string -- )
-  [CHAR] " pinch   s>str prn-type   [CHAR] " pinch ; %string method-of (pr-str)
+  s>str   print-readably? @ IF str-pr-readably ELSE prn-type THEN ;
+%string method-of (pr-str)
 
 \ Symbols are stored like strings but with a different type.
 :noname ( symbol -- ) s>str prn-type ; %symbol method-of (pr-str)
@@ -21,11 +34,30 @@
 :noname ( keyword -- ) [char] : pinch   s>str prn-type ; %keyword method-of (pr-str)
 
 \ Constructors ===============================================================
+\ Like MOVE, but handles escaping on the way through.
+VARIABLE (unescape?)
+VARIABLE (unescape-next?)
+: (unescape-ch) ( ch -- ch' ) dup 'n' = IF drop 10 THEN ;
+: (unescape) ( src dst u -- len )
+  (unescape?) @ 0= IF dup >R move R> EXIT THEN
+  swap >R     ( src u     R: dst )
+  over + swap ( end src   R: dst )
+  R@ -rot ?DO ( dst )
+    i c@   dup [char] \ =   (unescape-next?) @ 0= and IF
+      drop (unescape-next?) on
+    ELSE
+      (unescape-next?) @ IF (unescape-ch) THEN
+      (unescape-next?) off
+      over c! char+
+    THEN
+  LOOP
+  R> - (unescape?) off ;
+
 : (>stringy) ( c-addr u %type -- value )
   over 2 cells + aligned allocate throw >R
-  R@ !                \ Write the type ( c-addr u   R: value )
-  dup R@ s>len !      \ And the length ( c-addr u   R: value )
-  R@ s>data swap move \ Copy the contents ( R: value )
+  R@ !                      \ Write the type      ( c-addr u   R: value )
+  R@ s>data swap (unescape) \ Copy the contents          ( len R: value )
+  R@ s>len !                \ Write the unescaped length     ( R: value )
   R> ;
 
 : >symbol  ( c-addr u -- symbol ) %symbol  (>stringy) ;

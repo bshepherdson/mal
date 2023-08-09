@@ -1,4 +1,3 @@
-
 \ Shared number literals for memory efficiency
 CREATE negative1 %NUMBER , -1 ,
 CREATE zero      %NUMBER ,  0 ,
@@ -23,6 +22,5 @@ CREATE num-literals
   num-value <# dup abs S>D #S rot sign #> prn-type ;   %number method-of (pr-str)
 
 :noname ( x y -- )
-  ." num-compare: " over % . dup % . cr
-  %?cmp   ."   still here" cr num-value >R num-value R> cmp ;   %number method-of compare
+  %?cmp   num-value >R num-value R> cmp ;   %number method-of compare
 
