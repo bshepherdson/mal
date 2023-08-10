@@ -6,3 +6,6 @@
 
 \ Double exit - this returns from the caller of the caller of BAIL
 : bail ( -- ) R> R> 2drop ;
+
+: ?stack-clear ( -- )
+  depth ABORT" Stack not empty on init - :noname without method-of etc.?" ;

@@ -1,0 +1,19 @@
+\ Atoms
+\ [ %atom | value ]
+
+: a>value ( atom -- 'value ) cell+ ;
+: deref   ( atom -- value )  a>value @ ;
+
+: new-atom ( value -- atom ) %atom 2 alloc-typed   tuck a>value ! ;
+
+\ TODO: GC needs to update this.
+: set-atom! ( value atom -- ) a>value ! ;
+
+\ Printing
+:noname ( atom -- )
+  S" (atom " prn-type   deref (pr-str)   [char] ) pinch ; %atom method-of (pr-str)
+
+\ Comparison - based on the inner values.
+:noname ( x y -- -1|0|1 )
+  %?cmp   deref swap deref swap compare ; %atom method-of compare
+

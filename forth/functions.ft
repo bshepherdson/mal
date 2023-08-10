@@ -33,12 +33,15 @@
   env-zipping            ( env   R: fn )
   R> f>body @            ( env body ) ;
 
-: exec-builtin  ( args builtin  -- result ) cell+ @ execute ;
+VARIABLE (builtin-env)
+: exec-builtin  ( env args builtin  -- env result )
+  2 pick (builtin-env) !
+  cell+ @ execute ;
 
-\ To support TCO, this returns a break? flag, either true with a computed result
-\ or false if there's still forms to evaluate.
-: exec-fn ( env args fn -- result true | env form false )
-  dup builtin? IF exec-builtin nip true ELSE exec-function false THEN ;
+\ To support TCO, this returns a break? flag, either true to indicate the result is
+\ fully evaluated, or false if we're set up for tail recursion.
+: exec-fn ( env args fn -- env form|result break? )
+  dup builtin? IF exec-builtin true ELSE exec-function false THEN ;
 
 :noname drop S" #<builtin>"  prn-type ; %builtin  method-of (pr-str)
 :noname drop S" #<function>" prn-type ; %function method-of (pr-str)

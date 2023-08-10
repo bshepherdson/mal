@@ -36,6 +36,7 @@ multi eval-ast ( env form -- form )
   dup %bool     method-of eval-ast
   dup %string   method-of eval-ast
   dup %keyword  method-of eval-ast
+  dup %atom     method-of eval-ast
   dup %builtin  method-of eval-ast
       %function method-of eval-ast
 

@@ -3,6 +3,10 @@ VARIABLE repl-env
 
 nil new-env repl-env !
 
+\ The REPL env always contains *ARGV*, which is an empty list by default.
+\ These are only populated when running in the scripting mode.
+S" *ARGV*" >symbol empty-list repl-env @ env-set repl-env !
+
 : builtin: ( xt "name" -- )
   builtin   parse-name >symbol swap   repl-env @ env-set   repl-env ! ;
 
@@ -79,6 +83,41 @@ VARIABLE (sep)
 :noname
   print-readably? off  (sep-space!)   [pr-str] type cr nil ; builtin: println
 
+\ Files ======================================================================
+\ (read-string string)
+:noname ( argv -- form ) head s>str read-str-raw        ; builtin: read-string
+
+\ (slurp "filename")
+:noname ( argv -- string )
+  head s>str r/o open-file throw >R ( R: fileid )
+  R@ file-size throw D>S            ( len  R: fileid )
+  dup 2 cells + allocate throw      ( len string   R: fileid )
+  %string over !   tuck s>len !     ( string       R: fileid )
+  dup s>str R@ read-file throw drop ( string       R: fileid )
+  R> close-file throw               ( string )          ; builtin: slurp
+
+\ (eval form)
+:noname ( argv -- value ) head repl-env @ swap EVAL     ; builtin: eval
+
+\ Atoms ======================================================================
+\ (atom value)
+:noname ( argv -- atom ) head new-atom                  ; builtin: atom
+\ (atom? x)
+:noname ( argv -- atom ) head % %atom = >bool           ; builtin: atom?
+\ (deref atom)
+:noname ( argv -- atom ) head deref                     ; builtin: deref
+\ (reset! atom value)
+:noname ( argv -- value )
+  dup second dup rot head ( val val atom ) set-atom!    ; builtin: reset!
+
+\ (swap! atom f ...args)
+:noname ( argv -- value )
+  dup head dup >R           ( argv atom     R: atom )
+  deref over tail tail cons ( argv args )
+  swap second               ( args f )
+  swap cons                 ( call )
+  (builtin-env) @ swap EVAL ( new-value )
+  dup R> set-atom!          ( new-value )               ; builtin: swap!
 
 \ Lists ======================================================================
 \ (list & contents)

@@ -5,7 +5,7 @@
 : msg-malformed-number ." broken number literal" ;
 : msg-indexv           ." vector index out of bounds" ;
 : msg-unknown-symbol   ." unknown symbol" ; \ TODO: Make this more informative.
-: msg-not-found        ." not found" ;      \ TODO: Make this more informative.
+: msg-not-found        ." not found: " (last-get) @ s>str type ;
 
 \ Next error: 8
 
