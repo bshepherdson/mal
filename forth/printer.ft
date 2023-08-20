@@ -21,3 +21,9 @@ VARIABLE print-readably?
 
 
 :noname drop S" nil"         prn-type ; %nil      method-of (pr-str)
+
+\ Prints Forth values on the data stack, to the given depth.
+: pr.s ( depth-max -- )
+  depth 1- min   [char] < dup 0 .R [char] >
+  1- 0 swap DO 2 spaces   i pick pr-str type   -1 +LOOP ;
+

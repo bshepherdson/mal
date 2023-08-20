@@ -205,17 +205,24 @@ DEFER [hash-map]
   mal-false S" false" ?named
   0 ;
 
-\ Read the next form and wrap it into a (deref x) call.
-: read-deref ( -- value )
-  +token read-form   ( value )
-  empty-list cons    ( argv )
-  S" deref" >symbol swap cons ( call ) ;
+: wrap-form ( symbol -- ) +token read-form empty-list cons cons ;
 
-\ TODO: Various reader macros like ' and ~
+\ Read the next form and wrap it into a (deref x) call.
+: read-deref      ( -- value ) 'deref      wrap-form ;
+: read-quote      ( -- value ) 'quote      wrap-form ;
+: read-quasiquote ( -- value)  'quasiquote wrap-form ;
+
+: read-unquote ( c-addr u -- )
+  S" ~@" str= IF 'splice-unquote ELSE 'unquote THEN wrap-form ;
+
 : read-atom ( -- value )
   \ First check the things with obvious prefixes, like strings and keywords.
   token over c@ ( c-addr u ch )
   dup [char] @ = IF drop 2drop read-deref       EXIT THEN
+  dup [char] ~ = IF drop       read-unquote     EXIT THEN
+  dup [char] ' = IF drop 2drop read-quote       EXIT THEN
+  dup [char] ` = IF drop 2drop read-quasiquote  EXIT THEN
+
   dup [char] " = IF drop       read-str-lit     EXIT THEN
   dup [char] : = IF drop       read-keyword     EXIT THEN
   dup [char] [ = IF drop       read-vector      EXIT THEN

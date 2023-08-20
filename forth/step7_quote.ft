@@ -1,0 +1,126 @@
+REQUIRE utils.ft
+REQUIRE types.ft
+REQUIRE meta.ft
+REQUIRE iteration.ft
+REQUIRE compare.ft
+REQUIRE printer.ft
+REQUIRE numbers.ft
+REQUIRE vectors.ft
+REQUIRE lists.ft
+REQUIRE maps.ft
+REQUIRE env.ft
+REQUIRE strings.ft
+REQUIRE bools.ft
+REQUIRE nil.ft
+REQUIRE atoms.ft
+REQUIRE functions.ft
+REQUIRE reader.ft
+REQUIRE errors.ft
+REQUIRE core.ft
+REQUIRE special-forms.ft
+?stack-clear
+
+\ REPL =======================================================================
+: READ  ( c-addr u -- form )     read-str-raw ;
+
+\ eval-ast is a MULTI
+
+: eval-list ( env form -- env result|form break? )
+  dup emptyl? IF true EXIT THEN \ Return an empty list unchanged.
+  over swap eval-ast \ ( env form ) a new, evaluated list.
+  dup tail swap head   ( env argv fn )
+  exec-fn ;
+
+\ EVAL
+:noname ( env form -- form )
+  \ This loop is for tail recursion. Evaluating a list can result in recursive
+  \ EVAL calls, of course, but final ones are returned to the outer EVAL loop
+  \ instead of nesting them.
+  BEGIN
+    ?special-form   skip-eval @ IF
+      skip-eval off  ( env form ) true
+    ELSE
+      dup list? IF eval-list ELSE
+        eval-ast    ( result )
+        0 swap true ( 0 result true )
+      THEN ( ... break? )
+    THEN
+    \ We've got either ( ignored-env result true ) or ( env' form' false ) now.
+  UNTIL nip ( result ) ; IS EVAL
+
+: PRINT ( form     -- c-addr u ) print-readably? on   pr-str ;
+
+: rep ( c-addr u -- c-addr u )
+  READ
+  repl-env @ swap EVAL
+  \ ." post-EVAL: " hex.s cr
+  PRINT ;
+
+\ Defining stuff in Mal itself.
+S" (def! not (fn* [a] (if a false true)))" rep 2drop
+
+S" (def! fib (fn* (N) (if (= N 0) 1 (if (= N 1) 1 (+ (fib (- N 1)) (fib (- N 2)))))))" rep 2drop
+
+:noname S\" (def! load-file (fn* [filename] (eval (read-string (str \q(do \q (slurp filename) \q\\n)\q)))))" ;
+execute rep 2drop
+
+\ Main loop ==================================================================
+\ Gforth's ACCEPT outputs an extra space which breaks Mal's test scripts
+\ : mal-accept ( c-addr u -- +n )
+\   drop dup >R
+\   BEGIN
+\     key
+\     dup  4 = IF drop R> 2drop 0 EXIT THEN \ Return 0 if we got EOF (even if we parsed)
+\     dup 13 = IF drop R> - EXIT THEN
+\     dup emit
+\     over c!   char+
+\   AGAIN ;
+CREATE input 256 chars allot align
+
+: mal-accept ( c-addr u -- +n good? ) stdin read-line throw ;
+
+: repl ( -- )
+  BEGIN
+    ." user> "   input 255 mal-accept
+  WHILE ( len )
+    input swap   ['] rep catch   ?dup IF error. ELSE type THEN cr
+    ?stack-clear
+  REPEAT ;
+
+: with-args ( env -- env' )
+  empty-list BEGIN next-arg dup WHILE
+    >string swap cons
+  REPEAT 2drop ( env argv )
+  reverse S" *ARGV*" >symbol swap rot ( sym argv env )
+  env-set ;
+
+: scripted ( c-addr u -- )
+  >string empty-list cons         ( [filename] )
+  S" load-file" >symbol swap cons ( [load-file filename] )
+  repl-env @   with-args          ( [load-file filename] env )
+  swap EVAL bye ;
+
+: main ( -- )
+  \ Check the system command line to see if there's any arguments.
+  \ If there are, treat the first as a script to run with load-file.
+  next-arg ( c-addr u )
+  dup IF scripted ELSE 2drop repl THEN ;
+
+main
+
+\ START HERE: Apparently a bug in def! now?
+\ Should be ready for regular tests for step 7. Quoting of vectors should be
+\ added, including (cons x [y z])
+
+\ TODO: Consider seqs and laziness powered by eval and quoted code. Does that
+\ work? A lazy-seq is sort of like a list, but it contains two cells: the
+\ realized value and the quoted code to produce the next cell. Probably also
+\ the env to run that code in, like a closure.
+\ Running the code returns either a new lazy-seq node with the same two values
+\ or nil to signal the end.
+\ I think that replaces the way I built seqs really nicely, since it's more
+\ uniform. Things like the vector seq's index are captured by the closure env.
+\ A bit tricky to do when the index keeps changing... want to make sure each
+\ successive env *replaces* the previous with the same parent, rather than
+\ nesting.
+

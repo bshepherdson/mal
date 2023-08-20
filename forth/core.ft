@@ -132,6 +132,28 @@ VARIABLE (sep)
 \ (count x)
 :noname head mal-count                                  ; builtin: count
 
+\ (cons x xs)
+:noname dup head swap second cons                       ; builtin: cons
+
+\ (concat & lists)
+\ TODO: Make this use lazy seqs when those exist.
+: [concat1] ( heads... big-tail -- l3 )
+  over emptyl? IF nip EXIT THEN
+  swap dup head swap tail rot ( heads... head tail big-tail )
+  recurse ( heads... tail ) cons ;
+
+\ : [concat] ( heads... tail -- l )
+\   dup emptyl? IF EXIT THEN
+\   dup head swap tail ( lists... tail )
+\   RECURSE            ( lists... list catted )
+\   [concat1]          ( lists... catted ) ;
+
+:noname ( heads... tail -- l )
+  dup emptyl? IF EXIT THEN
+  dup head swap tail ( lists... tail )
+  RECURSE            ( lists... list catted )
+  [concat1]          ( lists... catted )               ; builtin: concat
+
 
 \ Construction ===============================================================
 \ (hash-map k1 v1 k2 v2 ...)

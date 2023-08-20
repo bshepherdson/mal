@@ -5,6 +5,9 @@
 VARIABLE special-forms
 nil new-env special-forms !
 
+VARIABLE skip-eval
+skip-eval off
+
 \ Repeatedly matches special forms until none matches.
 \ Returns the original env and list if no special form matches.
 : ?special-form ( env list -- env' list' )
@@ -24,11 +27,10 @@ nil new-env special-forms !
 \ (def! sym value) ===========================================================
 :noname ( env list -- env' nil )
   2dup third eval ( env list value )
-  swap second     ( env value key )
-  swap dup >R     ( env key value    R: value )
+  dup >R   swap second swap ( env key value    R: value )
   \ We actually want to def into the REPL env, not the current one.
   repl-env @ env-set ( dyn-env repl-env'   R: value )
-  drop R> ; special-form: def!
+  drop R>   empty-list cons   'quote swap cons ; special-form: def!
 
 \ (let* (binding value ...) body) ============================================
 :noname ( env list -- env' body-result )
@@ -48,14 +50,11 @@ nil new-env special-forms !
 
 \ (if cond true false)
 :noname ( env list -- env' result )
-  \ ." start of if: " dup pr-str type 4 spaces hex.s cr
   tail   dup tail >R    ( env l-cond   R: l-true )
   2dup head EVAL nip    ( env result   R: l-true )
-  \ hex.s cr
   R> swap               ( env l-true result )
   dup nil? swap   mal-false = or IF tail THEN \ Falsy case ( env list )
   dup emptyl? IF drop nil ELSE head THEN
-  \ ." end of if: " dup pr-str type 4 spaces hex.s cr
   ( env ast ) ; special-form: if
 
 \ (fn* (params)|[params] body)
@@ -64,3 +63,45 @@ nil new-env special-forms !
   dup second   ( env env list params )
   swap third   ( env env params body )
   function     ( env fn ) ;                         special-form: fn*
+
+\ (quote form) ===============================================================
+:noname ( env list -- env' form )
+  second   skip-eval on ;                           special-form: quote
+
+\ (quasiquote form)
+DEFER [qq]
+
+: sym= ( symbol c-addr u -- ? )
+  rot   dup % %symbol <> IF drop 2drop false EXIT THEN
+  s>str str= ;
+
+: splice-unquote? ( ast -- ? )
+  dup list? 0= IF drop false EXIT THEN
+  head S" splice-unquote" sym= ;
+
+: [qq-list] ( ast-list -- list )
+  dup emptyl? IF EXIT THEN
+  dup head swap tail recurse ( heads... head tail-list )
+
+  ( heads... head tail-list )
+  swap dup splice-unquote? IF ( heads... tail-list head )
+    \ Combine with concat
+    second  swap empty-list cons cons ( heads... elt+tail-list)
+    'concat swap cons                 ( heads... [concat elt tail] )
+  ELSE
+    \ Combine with cons
+    [qq] swap ( elt tail ) empty-list cons cons   'cons swap cons
+  THEN ;
+
+
+:noname ( form -- form' )
+  dup list? IF
+    dup head S" unquote" sym= IF second ELSE [qq-list] THEN
+    EXIT
+  THEN
+  \ Maps and symbols are wrapped with (quote x) to avoid evaluating them.
+  dup % dup %map =   swap %symbol = or IF
+    empty-list cons   'quote swap cons EXIT THEN ; IS [qq]
+  \ Everything else is returned unchanged.
+
+:noname ( env list -- env' form ) second [qq] ;     special-form: quasiquote

@@ -87,3 +87,24 @@ CREATE fail-get-sentinel
 
 :noname ( env symbol -- value ) swap env-get ; %symbol method-of eval-ast
 
+
+\ Static symbols =============================================================
+\ Defines a Mal symbol as a Forth CREATEd word, named 'word
+\ These are static so as to be outside of GC.
+: static-sym ( "word" --     X: -- symbol )
+  S" CREATE '" pad     swap move
+  parse-name
+  2dup         pad 8 + swap move ( c-addr u    Pad now reads: CREATE 'word )
+  dup 8 +   pad swap EVALUATE    ( c-addr u )
+  %symbol ,   dup ,              \ Write %symbol and length
+  here over allot align          ( src u dst )
+  swap move ( ) ;
+
+static-sym deref
+static-sym concat
+static-sym cons
+static-sym quote
+static-sym quasiquote
+static-sym unquote
+static-sym splice-unquote
+
