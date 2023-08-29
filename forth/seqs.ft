@@ -1,0 +1,76 @@
+\ A lazy sequence has one of two forms: realized or unrealized.
+\ The first cell is a (Mal) boolean declaring whether the sequence is realized.
+\ Realized:   [ %lazy-seq | true  | result ]
+\ Unrealized: [ %lazy-seq | false | fn ]
+\ The second cell of a realized sequence contains a cons cell (not a list,
+\ strictly speaking) whose head is the first element and whose tail is either
+\ nil or another lazy seq.
+
+\ An unrealized seq has a Mal 0-argument function closure as its second cell.
+\ When this function is executed (no arguments) it will return the same cons
+\ cell as above.
+
+\ Seqs can be examined with first and rest, which will realize the sequence in
+\ place if it is still unrealized.
+
+: seq>realized? cell+ ;
+: seq>payload   2 cells + ;
+
+: lazy-seq ( fn -- seq )
+  %lazy-seq 2 alloc-typed
+  tuck seq>payload !
+  mal-false over seq>realized? ! ;
+
+: lazy? ( value -- lazy? ) % %lazy-seq = ;
+
+: (realize) ( seq -- )
+  dup seq>realized? @ mal-true = IF drop EXIT THEN
+  dup seq>payload @ ( seq fn )
+  ." Realizing: " dup pr-str type cr
+  nil empty-list rot ( seq fake-env empty-argv fn )
+  exec-function      ( seq env fn-body )
+  ." Ready to realize: " ( over pr-str type cr ) dup % . cr \   pr-str type cr
+  eval               ( seq cons )
+  over seq>payload ! ( seq )
+  mal-true swap seq>realized? ! ;
+
+: realize ( lazy|anything -- value )
+  dup lazy? IF dup (realize) seq>payload @ THEN ;
+
+\ Making tail smarter, so it can handle a lazy sequence.
+:noname realize   l>tail @ ; IS tail
+
+: first ( seq -- value )      dup some? IF realize head THEN ;
+: rest  ( seq -- nil | seq' ) dup some? IF realize tail THEN ;
+
+\ Printing - pass through if resolved, just return #<lazy> if not for now.
+\ TODO: Printing should force lazy values.
+:noname
+  drop S" #<lazy>" prn-type ;
+  \ dup seq>realized? @ mal-true = IF seq>payload @ (pr-str)
+\ [char] ( pinch   0 ['] (pr-spaced-each) rot each drop   [char] ) pinch ;
+  %lazy-seq method-of (pr-str)
+
+:noname 1 swap BEGIN rest dup some? WHILE swap 1+ swap REPEAT drop number ;
+  %lazy-seq method-of mal-count
+
+:noname ( xs ys -- -1|0|1 )
+  %?cmp
+  BEGIN
+    over nil? over nil? 2dup and IF 2drop 2drop 0 EXIT THEN     \ Same length
+    IF 2drop drop  1 EXIT THEN \ ys shorter
+    IF 2drop      -1 EXIT THEN \ xs shorter
+    over first over first   compare ?dup IF >R 2drop R> EXIT THEN \ x != y
+    rest swap rest swap \ Otherwise continue.
+  AGAIN ; %lazy-seq method-of compare
+
+:noname ( ... seq -- ... )
+  \ ." %lazy-seq (each)" cr
+  BEGIN dup some? WHILE
+    dup >R   first (each-xt) @ execute
+    R> rest
+  REPEAT drop ; %lazy-seq method-of (each)
+
+\ Realized lazy values are transparent; unrealized ones just return as-is.
+:noname ( env form -- form )
+  dup seq>realized? @ IF eval-ast ELSE nip THEN ; %lazy-seq method-of eval-ast
