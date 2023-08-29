@@ -5,32 +5,27 @@
 VARIABLE special-forms
 nil new-env special-forms !
 
-VARIABLE skip-eval
-skip-eval off
-
 \ Repeatedly matches special forms until none matches.
 \ Returns the original env and list if no special form matches.
-: ?special-form ( env list -- env' list' )
-  BEGIN
-    dup list? 0= IF EXIT THEN
-    dup emptyl?  IF EXIT THEN
+: ?special-form ( env list -- env' list' eval-done? )
     dup head special-forms @ env-find  ( env list value )
-    dup some? IF execute ELSE drop EXIT THEN
-  AGAIN ;
+    dup some? IF execute ELSE drop false THEN ( env' list' eval-done? ) ;
 
 : special-form: ( xt "name" -- )
   parse-name >symbol swap   special-forms @ env-set   special-forms ! ;
 
 \ NOTE: Special forms take the entire list, not just the arguments.
 
+\ START HERE: Add the done flag to all the special forms!
+
 \ TODO: I'm not certain what def! is supposed to return. I settled on the value.
 \ (def! sym value) ===========================================================
-:noname ( env list -- env' nil )
+:noname ( env list -- env' nil done=T )
   2dup third eval ( env list value )
   dup >R   swap second swap ( env key value    R: value )
   \ We actually want to def into the REPL env, not the current one.
   repl-env @ env-set ( dyn-env repl-env'   R: value )
-  drop R>   empty-list cons   'quote swap cons ; special-form: def!
+  drop R>   true ; special-form: def!
 
 \ (let* (binding value ...) body) ============================================
 :noname ( env list -- env' body-result )
@@ -114,4 +109,17 @@ DEFER [qq]
     empty-list cons   'quote swap cons EXIT THEN ; IS [qq]
   \ Everything else is returned unchanged.
 
-:noname ( env list -- env' form ) second [qq] ;     special-form: quasiquote
+:noname ( env list -- env' form )
+  second [qq] ( 2dup EVAL nip )   ;           special-form: quasiquote
+
+\ Macros =====================================================================
+:noname ( env list -- env' form ) second macroexpand   skip-eval on ; special-form: macroexpand
+
+\ (defmacro! sym (fn* ...))
+:noname ( env list -- env' form )
+  2dup third eval ( env list fn-value )
+  dup macro! >R   ( env list    R: fn-value )
+  \ Actually def! into the repl-env, not the current one.
+  \ TODO: Is that really the right thing to do? What should (let [x 1] (def! y x)) do?
+  second R@ repl-env @ env-set drop ( env   R: fn-value )
+  R> ;                                              special-form: defmacro!

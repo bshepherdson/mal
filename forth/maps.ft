@@ -151,13 +151,13 @@ CREATE empty-map
 
 \ Each =======================================================================
 \ In-order traversal, recursing down the left branch.
-: [each] ( node|nil -- )
+: [each] ( ... node|nil -- ... )
   dup nil? IF drop EXIT THEN
   dup >R left recurse
-  R@ nvalue (each-xt) @ execute
+  R@ (each-xt) @ execute
   R> right recurse ;
 
-:noname ( map -- ) root [each] ; %map method-of (each)
+:noname ( ... map -- ... ) root [each] ; %map method-of (each)
 
 
 \ Printing ===================================================================

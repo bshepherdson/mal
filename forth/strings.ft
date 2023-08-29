@@ -8,6 +8,8 @@
 : length ( string -- length ) s>len @ ;
 : s>str  ( string -- c-addr u ) dup s>data swap length ;
 
+: symbol? ( value -- ? ) % %symbol = ;
+
 \ Printer
 : ?escaped ( ch -- ch' ? )
   dup 10 =       IF drop 'n' true EXIT THEN

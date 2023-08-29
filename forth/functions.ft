@@ -1,6 +1,6 @@
 \ Functions ==================================================================
 \ [ %builtin  | xt ]
-\ [ %function | env | params | body ]
+\ [ %function | env | params | body | macro? ]
 
 : builtin ( xt -- fn )
   %builtin 2 alloc-typed >R
@@ -12,17 +12,20 @@
 : f>env    cell+ ;
 : f>params 2 cells + ;
 : f>body   3 cells + ;
+: f>macro? 4 cells + ;
 
 : function ( env params body -- fn )
-  %function 4 alloc-typed >R
+  %function 5 alloc-typed >R
   R@ f>body   !
   R@ f>params !
   R@ f>env    !
+  0 R@ f>macro? !
   R> ;
 
 : function? ( value -- ? ) % %function = ;
 : builtin?  ( value -- ? ) % %builtin  = ;
-: fn? ( value -- ? ) dup function? swap builtin? or ;
+: fn?       ( value -- ? ) dup function? swap builtin? or ;
+: macro?    ( value -- ? ) dup function? IF f>macro? @ ELSE drop 0 THEN ;
 
 
 \ Calling Mal functions ======================================================
@@ -60,7 +63,7 @@ VARIABLE zip-env
   cells params + @      ( values key )
   over head zip-env @   ( values key value env )
 
-  ." Binding " 2 pick pr-str type ."  to " over pr-str type cr
+  \ ." Binding " 2 pick pr-str type ."  to " over pr-str type cr
 
   env-set zip-env !     ( values )
   tail ;
@@ -97,9 +100,40 @@ VARIABLE (builtin-env)
 
 \ To support TCO, this returns a break? flag, either true to indicate the result is
 \ fully evaluated, or false if we're set up for tail recursion.
-: exec-fn ( env args fn -- env form|result break? )
-  dup builtin? IF exec-builtin true ELSE exec-function false THEN ;
+: exec-fn ( env args fn -- env form|result )
+  dup builtin? IF exec-builtin ELSE exec-function THEN ;
 
+\ Macro support ==============================================================
+: macro! ( function -- ) -1 swap   f>macro? ! ;
+
+: macro-call? ( env ast -- ? )
+  \ ." Macro-call?" cr
+  dup list?   0=   IF 2drop false EXIT THEN
+  \ 4 spaces ." list" cr
+  dup empty-list = IF 2drop false EXIT THEN
+  \ 4 spaces ." not empty" cr
+  head
+  dup symbol? 0= IF 2drop false EXIT THEN
+  \ 4 spaces ." starts with a symbol" cr
+  swap env-find ( value|nil )
+  \ 4 spaces ." value: " dup pr-str type cr
+  dup nil?       IF drop  false EXIT THEN
+  macro?
+  \ 4 spaces ." macro? " dup . cr
+  ;
+
+: macroexpand ( env ast -- env ast )
+  BEGIN 2dup macro-call? WHILE ( env ast )
+    \ If this is a macro-call? we know it's a list like (macro-sym ...)
+    \ We should call it directly, without evaluating any arguments first.
+    \ ." Macroexpanding: " dup pr-str type cr
+    2dup head swap env-get ( env ast function )
+    swap tail swap         ( env args function )
+    exec-function          ( env' form )
+    \ 4 spaces dup pr-str type cr
+  REPEAT ;
+
+\ Meta-words
 :noname drop S" #<builtin>"  prn-type ; %builtin  method-of (pr-str)
 :noname
   S" (fn* " prn-type

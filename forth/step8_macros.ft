@@ -1,0 +1,134 @@
+REQUIRE utils.ft
+REQUIRE types.ft
+REQUIRE meta.ft
+REQUIRE iteration.ft
+REQUIRE compare.ft
+REQUIRE printer.ft
+REQUIRE numbers.ft
+REQUIRE vectors.ft
+REQUIRE lists.ft
+REQUIRE maps.ft
+REQUIRE env.ft
+REQUIRE strings.ft
+REQUIRE bools.ft
+REQUIRE nil.ft
+REQUIRE atoms.ft
+REQUIRE functions.ft
+\ REQUIRE seqs.ft
+REQUIRE reader.ft
+REQUIRE errors.ft
+REQUIRE core.ft
+REQUIRE special-forms.ft
+?stack-clear
+
+\ REPL =======================================================================
+: READ  ( c-addr u -- form )     read-str-raw ;
+
+\ eval-ast is a MULTI
+
+: eval-list ( env form -- env result|form )
+  dup emptyl? IF EXIT THEN \ Return an empty list unchanged.
+  over swap eval-ast \ ( env form ) a new, evaluated list.
+  \ ." eval-list EVAL'd to: " dup pr-str type cr
+  dup head fn? IF
+    dup tail swap head ( env argv fn )
+    exec-fn ( env' ast )
+    false
+  ELSE
+    true
+  THEN ;
+
+\ EVAL
+: (EVAL) ( env form -- form )
+  \ This loop is for tail recursion. Evaluating a list can result in recursive
+  \ EVAL calls, of course, but final ones are returned to the outer EVAL loop
+  \ instead of nesting them.
+  BEGIN
+    dup list? 0= IF eval-ast EXIT THEN
+
+    macroexpand
+    dup list? 0= IF eval-ast EXIT THEN
+    dup emptyl?  IF nip      EXIT THEN
+
+    ?special-form IF nip EXIT THEN
+
+    dup list? IF
+      eval-list ( env result done? ) IF nip EXIT THEN
+    ELSE eval-ast ( result ) EXIT THEN
+    ." TCO on: " dup pr-str type cr
+  AGAIN ;
+
+\ ' (EVAL) IS EVAL
+:noname ." EVAL: " dup pr-str type cr (EVAL) ." Result: " dup pr-str type cr ; IS EVAL
+
+: PRINT ( form     -- c-addr u ) print-readably? on   pr-str ;
+
+: rep ( c-addr u -- c-addr u )
+  \ ." rep "
+  READ
+  \ ." EVAL "
+  repl-env @ swap EVAL
+  \ ." post-EVAL " hex.s dup % .
+  depth >R PRINT depth R> 1+ <> 204 and throw
+  \ ." printed" cr
+  ;
+
+\ Defining stuff in Mal itself.
+S" (def! not (fn* [a] (if a false true)))" rep 2drop
+
+S" (def! fib (fn* (N) (if (= N 0) 1 (if (= N 1) 1 (+ (fib (- N 1)) (fib (- N 2)))))))" rep 2drop
+\ S" (def! list-seq (fn* [xs] (if (= (list) xs) nil (cons (head xs) (lazy (fn* [] (list-seq (tail xs))))))))" rep 2drop
+\ S" (def! -vec-seq (fn* [xs i] (if (< i (count xs)) (cons (nth xs i) (lazy (fn* [] (-vec-seq xs (+ i 1))))) nil)))" rep 2drop
+\ S" (def!  vec-seq (fn* [xs] (-vec-seq xs 0)))" rep 2drop
+\ S" (def! seq (fn* [xs] (if xs (if (list? xs) (list-seq xs) (vec-seq xs)) nil)))" rep 2drop
+
+:noname S\" (def! load-file (fn* [filename] (eval (read-string (str \q(do \q (slurp filename) \q\\n)\q)))))" ;
+execute rep 2drop
+
+\ S" (def! -concat (fn* [chunk chunks] (if chunk (lazy (fn* [] (cons (first chunk) (-concat (rest chunk) chunks)))) (if chunks (-concat (seq (first chunks)) (rest chunks)) nil))))" rep 2drop
+\ S" (def! concat  (fn* [& chunks] (let* [s (list-seq chunks)] (-concat (seq (first s)) (rest s)))))" rep 2drop
+
+\ Main loop ==================================================================
+\ Gforth's ACCEPT outputs an extra space which breaks Mal's test scripts
+\ : mal-accept ( c-addr u -- +n )
+\   drop dup >R
+\   BEGIN
+\     key
+\     dup  4 = IF drop R> 2drop 0 EXIT THEN \ Return 0 if we got EOF (even if we parsed)
+\     dup 13 = IF drop R> - EXIT THEN
+\     dup emit
+\     over c!   char+
+\   AGAIN ;
+CREATE input 256 chars allot align
+
+: mal-accept ( c-addr u -- +n good? ) stdin read-line throw ;
+
+: repl ( -- )
+  BEGIN
+    ." user> "   input 255 mal-accept
+  WHILE ( len )
+    input swap   ['] rep catch   ?dup IF dup error. throw ELSE type THEN cr
+    ?stack-clear
+  REPEAT ;
+
+: with-args ( env -- env' )
+  empty-list BEGIN next-arg dup WHILE
+    >string swap cons
+  REPEAT 2drop ( env argv )
+  reverse S" *ARGV*" >symbol swap rot ( sym argv env )
+  env-set ;
+
+: scripted ( c-addr u -- )
+  >string empty-list cons         ( [filename] )
+  S" load-file" >symbol swap cons ( [load-file filename] )
+  repl-env @   with-args          ( [load-file filename] env )
+  swap EVAL bye ;
+
+: main ( -- )
+  \ Check the system command line to see if there's any arguments.
+  \ If there are, treat the first as a script to run with load-file.
+  next-arg ( c-addr u )
+  dup IF scripted ELSE 2drop repl THEN ;
+
+S" (defmacro! unless (fn* [pred a b] `(if (not ~pred) ~a ~b)))" rep 2drop
+main
