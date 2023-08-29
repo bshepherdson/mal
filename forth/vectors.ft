@@ -37,9 +37,12 @@ CREATE empty-vector %vector , 0 ,
 5 CONSTANT err-indexv
 
 \ Throws if the index is out of range. Does nothing otherwise.
-: ?indexv ( index vector -- index vector ) 2dup countv >= err-indexv and throw ;
+: ?indexv ( index vector -- index vector )
+  2dup countv >= err-indexv and throw ;
 
-: getv ( index vector -- value ) ?indexv   atv @ ;
+: getv ( index vector -- value )
+  over 100 > 202 and throw
+  ?indexv   atv @ ;
 
 \ Printer for vectors.
 :noname ( vector -- )
@@ -74,24 +77,8 @@ CREATE empty-vector %vector , 0 ,
 
 :noname countv number ;   %vector     method-of mal-count
 
-\ Sequences
-\ Vector-seqs have three cells: [%vector-seq | index | vector ]
-: (vecseq) ( vector i -- vec-seq|nil )
-  2dup swap countv < IF
-    %vector-seq 3 alloc-typed   ( vector i vec-seq )
-    dup >R cell+ 2! R>
-  ELSE 2drop nil THEN ;
-
-: (vecseq@) ( vec-seq -- vector i ) cell+ 2@ ;
-
-\ Seq
-:noname ( vector -- vec-seq ) 0 (vecseq) ;               %vector method-of seq
-\ First
-:noname ( vec-seq -- value )   (vecseq@) swap getv ; %vector-seq method-of first
-\ Rest
-:noname ( vec-seq -- vec-seq ) (vecseq@) 1+ (vecseq) ; %vector-seq method-of rest
-\ Count
-:noname ( vec-seq -- number )
-  dup 2 cells + @ countv
-  cell+ @ -
-  number ;                                     %vector-seq method-of mal-count
+:noname ( vec -- )
+  \ ." %vector (each)" cr
+  dup countv 0 DO ( vec )
+    i swap   dup >R   getv (each-xt) @ execute   R>
+  LOOP drop ; %vector method-of (each)

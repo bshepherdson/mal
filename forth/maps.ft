@@ -149,40 +149,15 @@ CREATE empty-map
 : get-or ( default k map -- value|default ) root (get) ;
 : get ( k map -- value|nil ) nil -rot get-or ;
 
-\ Sequences ==================================================================
-\ Does an in-order traversal of the whole map, calling xt with each node.
-\ A map-seq is complicated - it effectively maintains a zipper of map-seqs.
-\ It points at the next node to print out.
-\ parent is nil for the root map-seq, which signals the end.
-\ [ %map-seq | this-node | parent-map-seq ]
-: (mapseq) ( node parent -- map-seq )
-  %map-seq 3 alloc-typed >R
-  R@ 2 cells + !
-  R@ cell+ !
-  R> ;
+\ Each =======================================================================
+\ In-order traversal, recursing down the left branch.
+: [each] ( node|nil -- )
+  dup nil? IF drop EXIT THEN
+  dup >R left recurse
+  R@ nvalue (each-xt) @ execute
+  R> right recurse ;
 
-: (leftmost) ( node parent-map-seq -- map-seq )
-  BEGIN over some? WHILE \ Bail if we've hit nil, can't go farther left.
-    2dup (mapseq)  ( node parent-seq new-seq )
-    nip swap left swap
-  REPEAT ( nil map-seq ) nip ;
-
-\ Seq
-:noname ( map -- map-seq ) root nil (leftmost) ;   %map method-of seq
-
-\ First - just the current node, whole.
-:noname ( map-seq -- node ) cell+ @ ;              %map-seq method-of first
-\ Rest - move to the leftmost node of our right branch.
-\ If we have no right branch, return the parent map-seq.
-:noname ( map-seq -- map-seq )
-  dup 2 cells + @   swap cell+ @ ( parent-map-seq node )
-  right dup nil? IF drop EXIT THEN \ Return the parent
-  ( parent-map-seq right )
-  swap (leftmost) ;                                %map-seq method-of rest
-\ Count
-: [map-seq-count] drop 1+ ;
-:noname ( map-seq -- number )
-  0 ['] [map-seq-count] rot each   number ; %map-seq method-of mal-count
+:noname ( map -- ) root [each] ; %map method-of (each)
 
 
 \ Printing ===================================================================

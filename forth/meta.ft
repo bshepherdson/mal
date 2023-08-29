@@ -42,19 +42,12 @@ multi eval-ast ( env form -- form )
 
 DEFER EVAL
 
-multi seq
-multi first
-multi rest
-
-:noname ;
-  dup %list-seq   method-of seq
-  dup %vector-seq method-of seq
-  dup %map-seq    method-of seq
-
-  \ Nil acts like a seq that returns nil for everything.
-  dup %nil        method-of seq
-  dup %nil        method-of first
-      %nil        method-of rest
+\ multi seq
+\ :noname ;
+\   dup %lazy-seq   method-of seq
+\ 
+\   \ Nil acts like a seq that returns nil for everything.
+\       %nil        method-of seq
 
 multi mal-count
 

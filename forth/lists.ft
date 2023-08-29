@@ -7,7 +7,10 @@ CREATE empty-list %LIST , 0 , 0 ,
 : l>head ( list -- 'head ) cell+ ;
 : l>tail ( list -- 'tail ) 2 cells + ;
 : head   ( list -- head )  l>head @ ;
-: tail   ( list -- tail )  l>tail @ ;
+
+\ Deferring this because it needs to be made smarter once lazy seqs are loaded.
+DEFER tail
+:noname ( list -- tail )  l>tail @ ; IS tail
 
 : list?   ( x -- list? ) @ %list = ;
 : emptyl? ( list -- ? ) empty-list = ;
@@ -41,29 +44,43 @@ CREATE empty-list %LIST , 0 , 0 ,
     tail
   -1 +LOOP drop ;
 
-\ Sequence
+: vec>list ( vec -- list )
+  empty-list   swap dup >R countv   ( dst len   R: src )
+  BEGIN dup WHILE   ( dst i+1       R: src )
+    1- tuck R@ getv ( i dst value   R: src )
+    swap cons swap  ( dst' i        R: src )
+  REPEAT R> 2drop ; ( list )
+
+: >vector ( list -- vector )
+  dup emptyl? IF drop empty-vector EXIT THEN
+  dup countl dup allocv >R   ( list len         R: vector )
+  cells R@ v>data            ( list size data   R: vector )
+  tuck + swap                ( list top start   R: vector )
+  DO dup head i !   tail   1 cells +LOOP drop R> ;
+
+: >list ( list|vec -- list )
+  dup list? IF EXIT THEN
+  dup vector? IF vec>list ELSE
+  dup % %lazy-seq = IF EXIT ELSE
+  ." >list unknown type: " % . cr 200 throw THEN THEN ;
+
 \ Seq ( list -- seq )
-\ List seqs are easy - just a pointer to the list. But return nil if empty.
-:noname
-  dup emptyl? IF drop nil EXIT THEN
-  %list-seq 2 alloc-typed ( list seq )
-  tuck cell+ ! ; %list method-of seq
-
-\ First ( list-seq -- value )
-:noname cell+ @ head ; %list-seq method-of first
-\ Rest  ( list-seq -- list-seq )
-:noname cell+ @ tail seq ; %list-seq method-of rest
-\ NOTE: If the tail is the empty list, seq on it will return nil.
-
-: lseq>list ( list-seq -- list ) cell+ @ ;
+\ The function takes no arguments, and closes over xs, the list.
+\ The function is (cons (head xs) (lazy-seq (tail xs)))
+\ Except that lazy-seq is a macro, so it's really written as
+\   (def! list-seq
+\     (fn* []
+\       (cons (head xs) (lazy (quote (tail xs))))))
+\ This is deferred so it can be constructed later.
+\ DEFER list-seq
+\ :noname ( list -- lazy-seq ) list-seq ; %list method-of seq
 
 \ Printing
-: (pr-list-each) ( index value -- index' )
+: (pr-spaced-each) ( index value -- index' )
   over IF bl pinch THEN   (pr-str)   1+ ;
 
-:noname ( list -- )
-  [CHAR] ( pinch   0 ['] (pr-list-each) rot each drop   [CHAR] ) pinch ;
-%list method-of (pr-str)
+:noname [char] ( pinch   0 ['] (pr-spaced-each) rot each drop   [char] ) pinch ;
+  %list method-of (pr-str)
 
 \ Eval
 :noname ( env list -- list' )
@@ -81,11 +98,22 @@ CREATE empty-list %LIST , 0 , 0 ,
 
 \ Compare
 :noname ( x y -- -1|0|1 )
-  %?cmp   seq swap seq swap   compare ; %list method-of compare
+  %?cmp BEGIN
+    over emptyl? over emptyl? and IF 2drop 0 EXIT THEN
+    over emptyl? IF 2drop -1 EXIT THEN
+    dup  emptyl? IF 2drop  1 EXIT THEN
+    over head over head compare ?dup IF >R 2drop R> EXIT THEN
+    tail swap tail swap
+  AGAIN ; %list method-of compare
 
-:noname ( x y -- -1|0|1 )
-  %?cmp
-  BEGIN over some? over some? and WHILE
-    over first over first compare ?dup IF >R 2drop R> EXIT THEN
-    rest swap rest swap
-  REPEAT 2drop 0 ; %list-seq method-of compare
+:noname ( ... list -- ... )
+  \ ." (each): " hex.s   4 spaces   dup % . cr
+  \ ." %list (each)" cr
+  depth >R
+  BEGIN dup emptyl? 0= WHILE
+    \ 8 spaces hex.s cr
+    dup >R   head (each-xt) @ execute   R> tail
+  REPEAT drop
+  depth R> 1- <> 201 and throw
+  \ ." (each) end: " hex.s cr
+  ; %list method-of (each)

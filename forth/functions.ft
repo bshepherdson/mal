@@ -24,12 +24,69 @@
 : builtin?  ( value -- ? ) % %builtin  = ;
 : fn? ( value -- ? ) dup function? swap builtin? or ;
 
+
+\ Calling Mal functions ======================================================
+CREATE params    24 cells allot
+VARIABLE fixed-arity
+VARIABLE variadic
+
+: +param ( symbol -- var? )
+  dup '& compare 0= IF drop true EXIT THEN
+  fixed-arity @ cells params + !   1 fixed-arity +!   false ;
+
+: reset-params  ( -- ) 0 fixed-arity !   0 variadic ! ;
+
+: params-vec  ( vec  -- )
+  \ ." params-vec: " dup pr-str type cr
+  dup countv 0 ?DO ( vec )
+    i over getv ( vec sym )
+    \ ." params-vec symbol: " dup pr-str type   4 spaces
+    +param IF i 1+ over getv variadic ! LEAVE THEN
+  LOOP drop ;
+
+: params-list ( list -- )
+  BEGIN dup emptyl? 0= WHILE
+    dup head +param IF second variadic ! EXIT THEN
+    tail
+  REPEAT drop ;
+
+VARIABLE zip-env
+
+\ Drains the keys (a list or vector) into the params array.
+: prep-params ( keys -- )
+  reset-params   dup list? IF params-list ELSE params-vec THEN ;
+
+: +arg ( values param-index -- values' )
+  cells params + @      ( values key )
+  over head zip-env @   ( values key value env )
+
+  ." Binding " 2 pick pr-str type ."  to " over pr-str type cr
+
+  env-set zip-env !     ( values )
+  tail ;
+
+9 CONSTANT err-arity-mismatch
+
+: check-arity ( values -- )
+  \ ." Function call, given arity: " dup countl .   4 spaces
+  \ ." expected: " fixed-arity @ . cr
+  countl fixed-arity @   variadic @ IF < ELSE <> THEN ( bad? )
+  err-arity-mismatch and throw ;
+
+: env-zipping ( env1 keys values -- env2 )
+  rot new-env zip-env !
+  swap prep-params           ( values )
+  dup check-arity
+  fixed-arity @ 0 ?DO i +arg ( values' ) LOOP
+  variadic @ ?dup IF swap zip-env @ env-set ELSE drop zip-env @ THEN ( env2 ) ;
+
+
 : exec-function ( env args function -- env' form )
   \ Need to create a new environment for the function, which descends from the
   \ closed environment with the params and arguments layered on top.
   rot drop
-  dup >R   f>env @ swap  ( closure-env args          R: fn )
-  R@ f>params @ swap     ( closure-env params args   R: fn )
+  dup >R f>env    @ swap ( closure-env args          R: fn )
+      R@ f>params @ swap ( closure-env params args   R: fn )
   env-zipping            ( env   R: fn )
   R> f>body @            ( env body ) ;
 
@@ -44,4 +101,10 @@ VARIABLE (builtin-env)
   dup builtin? IF exec-builtin true ELSE exec-function false THEN ;
 
 :noname drop S" #<builtin>"  prn-type ; %builtin  method-of (pr-str)
-:noname drop S" #<function>" prn-type ; %function method-of (pr-str)
+:noname
+  S" (fn* " prn-type
+  dup f>params @ (pr-str)
+  bl pinch
+  \ S"  (body)" prn-type drop
+  f>body @ (pr-str)
+  ')' pinch ; %function method-of (pr-str)

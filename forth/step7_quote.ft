@@ -14,6 +14,7 @@ REQUIRE bools.ft
 REQUIRE nil.ft
 REQUIRE atoms.ft
 REQUIRE functions.ft
+\ REQUIRE seqs.ft
 REQUIRE reader.ft
 REQUIRE errors.ft
 REQUIRE core.ft
@@ -36,7 +37,9 @@ REQUIRE special-forms.ft
   \ This loop is for tail recursion. Evaluating a list can result in recursive
   \ EVAL calls, of course, but final ones are returned to the outer EVAL loop
   \ instead of nesting them.
+  \ ." EVAL: " dup pr-str type cr
   BEGIN
+    depth >R
     ?special-form   skip-eval @ IF
       skip-eval off  ( env form ) true
     ELSE
@@ -46,23 +49,37 @@ REQUIRE special-forms.ft
       THEN ( ... break? )
     THEN
     \ We've got either ( ignored-env result true ) or ( env' form' false ) now.
-  UNTIL nip ( result ) ; IS EVAL
+    depth 1- R> <> 203 and throw
+  UNTIL nip ( result )
+  \ ."   EVAL result: " dup pr-str type cr
+  ; IS EVAL
 
 : PRINT ( form     -- c-addr u ) print-readably? on   pr-str ;
 
 : rep ( c-addr u -- c-addr u )
+  \ ." rep "
   READ
+  \ ." EVAL "
   repl-env @ swap EVAL
-  \ ." post-EVAL: " hex.s cr
-  PRINT ;
+  \ ." post-EVAL " hex.s dup % .
+  depth >R PRINT depth R> 1+ <> 204 and throw
+  \ ." printed" cr
+  ;
 
 \ Defining stuff in Mal itself.
 S" (def! not (fn* [a] (if a false true)))" rep 2drop
 
 S" (def! fib (fn* (N) (if (= N 0) 1 (if (= N 1) 1 (+ (fib (- N 1)) (fib (- N 2)))))))" rep 2drop
+\ S" (def! list-seq (fn* [xs] (if (= (list) xs) nil (cons (head xs) (lazy (fn* [] (list-seq (tail xs))))))))" rep 2drop
+\ S" (def! -vec-seq (fn* [xs i] (if (< i (count xs)) (cons (nth xs i) (lazy (fn* [] (-vec-seq xs (+ i 1))))) nil)))" rep 2drop
+\ S" (def!  vec-seq (fn* [xs] (-vec-seq xs 0)))" rep 2drop
+\ S" (def! seq (fn* [xs] (if xs (if (list? xs) (list-seq xs) (vec-seq xs)) nil)))" rep 2drop
 
 :noname S\" (def! load-file (fn* [filename] (eval (read-string (str \q(do \q (slurp filename) \q\\n)\q)))))" ;
 execute rep 2drop
+
+\ S" (def! -concat (fn* [chunk chunks] (if chunk (lazy (fn* [] (cons (first chunk) (-concat (rest chunk) chunks)))) (if chunks (-concat (seq (first chunks)) (rest chunks)) nil))))" rep 2drop
+\ S" (def! concat  (fn* [& chunks] (let* [s (list-seq chunks)] (-concat (seq (first s)) (rest s)))))" rep 2drop
 
 \ Main loop ==================================================================
 \ Gforth's ACCEPT outputs an extra space which breaks Mal's test scripts
@@ -83,7 +100,7 @@ CREATE input 256 chars allot align
   BEGIN
     ." user> "   input 255 mal-accept
   WHILE ( len )
-    input swap   ['] rep catch   ?dup IF error. ELSE type THEN cr
+    input swap   ['] rep catch   ?dup IF dup error. throw ELSE type THEN cr
     ?stack-clear
   REPEAT ;
 
@@ -106,21 +123,6 @@ CREATE input 256 chars allot align
   next-arg ( c-addr u )
   dup IF scripted ELSE 2drop repl THEN ;
 
+S" (def! c '(1 2 3))" rep 2drop
+\ S" `[1 ~@c 4]" rep type cr bye
 main
-
-\ START HERE: Apparently a bug in def! now?
-\ Should be ready for regular tests for step 7. Quoting of vectors should be
-\ added, including (cons x [y z])
-
-\ TODO: Consider seqs and laziness powered by eval and quoted code. Does that
-\ work? A lazy-seq is sort of like a list, but it contains two cells: the
-\ realized value and the quoted code to produce the next cell. Probably also
-\ the env to run that code in, like a closure.
-\ Running the code returns either a new lazy-seq node with the same two values
-\ or nil to signal the end.
-\ I think that replaces the way I built seqs really nicely, since it's more
-\ uniform. Things like the vector seq's index are captured by the closure env.
-\ A bit tricky to do when the index keeps changing... want to make sure each
-\ successive env *replaces* the previous with the same parent, rather than
-\ nesting.
-

@@ -100,6 +100,7 @@ CREATE fail-get-sentinel
   here over allot align          ( src u dst )
   swap move ( ) ;
 
+\ Used by the reader.
 static-sym deref
 static-sym concat
 static-sym cons
@@ -108,3 +109,6 @@ static-sym quasiquote
 static-sym unquote
 static-sym splice-unquote
 
+static-sym list-seq
+static-sym &
+static-sym vec

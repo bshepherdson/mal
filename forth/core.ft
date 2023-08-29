@@ -126,19 +126,29 @@ VARIABLE (sep)
 \ (list? x)
 :noname head list? >bool                                ; builtin: list?
 
-\ (empty? x)
-:noname head seq nil? >bool                             ; builtin: empty?
-
 \ (count x)
-:noname head mal-count                                  ; builtin: count
+:noname head ." Count: " dup . dup % . dup pr-str type mal-count 4 spaces dup . dup pr-str type cr ; builtin: count
+
+\ (empty? x)
+:noname head mal-count 0= >bool                         ; builtin: empty?
 
 \ (cons x xs)
-:noname dup head swap second cons                       ; builtin: cons
+:noname dup head swap second >list cons                 ; builtin: cons
+
+\ (>list ls)
+:noname head >list                                      ; builtin: >list
+
+\ (head ls)   TODO: Blindly assumes a list! Fix this.
+:noname head head                                       ; builtin: head
+\ (tail ls)   TODO: Blindly assumes a list! Fix this.
+:noname head tail                                       ; builtin: tail
 
 \ (concat & lists)
 \ TODO: Make this use lazy seqs when those exist.
-: [concat1] ( heads... big-tail -- l3 )
+: [concat1] ( heads... list big-tail -- l3 )
+  \ If 'list' (the one we're currently unrolling) is empty, drop it and start returning.
   over emptyl? IF nip EXIT THEN
+  \ Otherwise, unwrap a cell and recurse.
   swap dup head swap tail rot ( heads... head tail big-tail )
   recurse ( heads... tail ) cons ;
 
@@ -149,11 +159,20 @@ VARIABLE (sep)
 \   [concat1]          ( lists... catted ) ;
 
 :noname ( heads... tail -- l )
-  dup emptyl? IF EXIT THEN
-  dup head swap tail ( lists... tail )
-  RECURSE            ( lists... list catted )
-  [concat1]          ( lists... catted )               ; builtin: concat
+  dup emptyl? IF drop empty-list EXIT THEN
+  dup head >list swap tail ( lists... tail )
+  RECURSE                  ( lists... list catted )
+  [concat1]                ( lists... catted )          ; builtin: concat
 
+\ Vectors ====================================================================
+\ (nth vec i)
+:noname ( vec i -- value )
+  dup second num-value   swap head getv                 ; builtin: nth
+
+\ (vector? x)
+:noname ( x -- bool ) head vector? >bool                ; builtin: vector?
+
+\ TODO: vec and vector - in Mal?
 
 \ Construction ===============================================================
 \ (hash-map k1 v1 k2 v2 ...)
@@ -168,10 +187,15 @@ VARIABLE (sep)
   head rot assoc ( map'   R: list+2 )
   R> REPEAT ( map empty ) drop                         ; builtin: hash-map
 
+\ (vector xs...)
+:noname ( xs -- vector ) >vector                       ; builtin: vector
+\ (vec x)
+:noname ( x -- vector ) head >vector                   ; builtin: vec
+
+\ :noname ( fn -- seq ) head lazy-seq                    ; builtin: lazy
+
 \ -- Debugging ===============================================================
 \ (env)
 :noname drop repl-env @                                ; builtin: env
-\ (sum coll)
-:noname seq first   0 ['] [+]   rot each   number      ; builtin: sum
 \ (quit x)
 :noname head quit                                      ; builtin: quit

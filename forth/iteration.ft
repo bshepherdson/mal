@@ -1,7 +1,11 @@
 VARIABLE (each-xt)
+multi (each)
+
 : each ( ... xt seqable -- ... )
+  depth >R
   swap (each-xt) >var< >R    ( seqable   R: old-xt )
-  seq BEGIN dup some? WHILE
-    dup >R   first   (each-xt) @ execute   R> rest
-  REPEAT drop   R> (each-xt) ! ;
+  (each)
+  R> (each-xt) !
+  depth R> 2 - <> 206 and throw
+  ;
 

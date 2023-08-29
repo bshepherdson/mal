@@ -43,10 +43,11 @@ skip-eval off
 \ (do body...) ===============================================================
 :noname ( env list -- env' last-result )
   \ This loop ends one early to enable TCO.
-  tail seq BEGIN dup rest some? WHILE ( env seq )
-    2dup first EVAL drop  ( env seq )
-    rest
-  REPEAT first ( env final-ast ) ;                  special-form: do
+  tail   dup emptyl? IF drop nil EXIT THEN
+  BEGIN dup tail emptyl? 0= WHILE ( env body )
+    2dup head EVAL drop  ( env body )
+    tail
+  REPEAT head ( env final-ast ) ;                  special-form: do
 
 \ (if cond true false)
 :noname ( env list -- env' result )
@@ -93,8 +94,17 @@ DEFER [qq]
     [qq] swap ( elt tail ) empty-list cons cons   'cons swap cons
   THEN ;
 
+\ Converts the vector to a list, quasiquotes that, and wraps the result with `vec`.
+\ TODO: The Mal tests are weird for this. The guide doc says that a QQ'd
+\ vector should be wrapped with `(vec ...)` and so return a vector.
+\ But the tests expect a list. Fix this on graduation.
+: [qq-vector] ( vector -- form )
+  >list [qq-list] ( qq'd-list ) ;
+  \ empty-list cons
+  \ 'vec swap cons ( [vec qq'd-list] )
 
 :noname ( form -- form' )
+  dup vector? IF [qq-vector] EXIT THEN
   dup list? IF
     dup head S" unquote" sym= IF second ELSE [qq-list] THEN
     EXIT
