@@ -1,4 +1,4 @@
-(ns mal.steps.step0_repl
+(ns mal.steps.step0-repl
   (:require
    [mal.util.malli :as mu]))
 

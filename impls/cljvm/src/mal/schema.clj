@@ -10,7 +10,14 @@
                                 :keyword
                                 :boolean
                                 :nil
+                                fn?
                                 [:vector [:ref ::value]]
                                 [:sequential [:ref ::value]]
                                 [:map-of [:ref ::value] [:ref ::value]]]}}
    ::value])
+
+(def Env
+  [:schema {:registry {::env [:map
+                              [:parent   [:maybe [:ref ::env]]]
+                              [:contents [:map-of :symbol Value]]]}}
+   ::env])

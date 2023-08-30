@@ -1,4 +1,5 @@
 #!/bin/bash
-exec bb -f $(dirname $0)/src/mal/steps/${STEP:-stepA_mal}.clj \
-    -m mal.steps.${STEP:-stepA_mal} \
+STEP=${STEP:-stepA_mal}
+exec bb -f $(dirname $0)/src/mal/steps/${STEP}.clj \
+    -m mal.steps.${STEP/_/-} \
     "${@}"

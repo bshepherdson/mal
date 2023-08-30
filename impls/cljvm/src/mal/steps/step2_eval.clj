@@ -1,4 +1,4 @@
-(ns mal.steps.step1-read-print
+(ns mal.steps.step2-eval
   "Totally cheating and using built-in Clojure structures and Edamame to parse."
   (:require
    [clojure.walk :as walk]
@@ -6,6 +6,36 @@
    [mal.printer :as printer]
    [mal.schema :as ms]
    [mal.util.malli :as mu]))
+
+(def ^:private repl-env
+  {:contents {'+ +
+              '- -
+              '* *
+              '/ quot}
+   :parent   nil})
+
+(mu/defn env-search :- [:or [:= ::not-found] ms/Value]
+  [{:keys [contents parent]} :- ms/Env
+   sym                       :- :symbol
+   not-found                 :- fn?]
+  (if (contains? contents sym)
+    (get contents sym)
+    (if parent
+      (recur parent sym)
+      (not-found sym))))
+
+(mu/defn env-find :- ms/Value
+  [env :- ms/Env
+   sym :- :symbol]
+  (env-search env sym (constantly nil)))
+
+(mu/defn env-get :- ms/Value
+  [env :- ms/Env
+   sym :- :symbol]
+  (env-search
+    env sym
+    #(throw (ex-info (str "undefined symbol: " (name %))
+                     {::undefined-symbol %}))))
 
 (defn- syntax-quote [form]
   ;; The form already has unquote and unquote-splicing in it.
@@ -40,9 +70,27 @@
   [input :- :string]
   (edamame/parse-string input edamame-options))
 
+(declare mal-eval)
+
+(mu/defn eval-ast :- ms/Value
+  [ast :- ms/Value
+   env :- ms/Env]
+  (cond
+    (symbol? ast) (env-get env ast)
+    (list? ast)   (doall (map #(mal-eval % env) ast))
+    (vector? ast) (mapv #(mal-eval % env) ast)
+    (map? ast)    (update-vals ast #(mal-eval % env))
+    :else         ast))
+
 (mu/defn mal-eval :- ms/Value
-  [ast :- ms/Value]
-  ast)
+  [ast :- ms/Value
+   env :- ms/Env]
+  (cond
+    (and (list? ast)
+         (= '() ast)) '() ; Empty list special case
+    (list? ast)       (let [[f & args] (eval-ast ast env)]
+                        (apply f args))
+    :else             (eval-ast ast env)))
 
 (mu/defn mal-print :- :string
   [value :- ms/Value]
@@ -53,15 +101,17 @@
   (try
     (-> input
         mal-read
-        mal-eval
+        (mal-eval repl-env)
         mal-print)
     (catch Throwable e
       (let [data (ex-data e)]
         (cond
           (:edamame/expected-delimiter data)
           (str "unexpected EOF, expected " (:edamame/expected-delimiter data))
+          (::undefined-symbol data)
+          (str "undefined symbol: " (::undefined-symbol data))
 
-          :else (str "unknown error: " data))))))
+          :else (str "unknown error: " (or data (.printStackTrace e))))))))
 
 (defn -main []
   (loop []
