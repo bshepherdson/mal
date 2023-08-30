@@ -19,5 +19,5 @@
 (def Env
   [:schema {:registry {::env [:map
                               [:parent   [:maybe [:ref ::env]]]
-                              [:contents [:map-of :symbol Value]]]}}
+                              [:contents [:fn #(instance? clojure.lang.Atom %)]]]}}
    ::env])
