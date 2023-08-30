@@ -1,0 +1,4 @@
+#!/bin/bash
+exec bb -f $(dirname $0)/src/mal/steps/${STEP:-stepA_mal}.clj \
+    -m mal.steps.step0_repl \
+    "${@}"
