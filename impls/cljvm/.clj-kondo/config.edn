@@ -1,0 +1,3 @@
+{:lint-as
+ {#_#_mal.core/mal-def  clojure.core/def
+  #_#_mal.core/mal-defn clojure.core/defn}}

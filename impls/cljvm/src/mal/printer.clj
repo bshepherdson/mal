@@ -18,12 +18,17 @@
        spaced
        (wrap left right)))
 
+(def ^:dynamic *print-readably* true)
+
 (mu/defn mal-pr-str :- :string
   [value :- ms/Value]
   (cond
     (map? value)    (wrap-seq "{" "}" (mapcat identity value))
     (vector? value) (wrap-seq "[" "]" value)
     (list? value)   (wrap-seq "(" ")" value)
-    (string? value) (pr-str value) #_(wrap "\"" "\"" (str value))
+    (string? value) (if *print-readably*
+                      (pr-str value)
+                      value)
     (nil? value)    "nil"
+    (fn? value)     "#<function>"
     :else           (str value)))

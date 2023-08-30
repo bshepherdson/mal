@@ -16,8 +16,12 @@
                                 [:map-of [:ref ::value] [:ref ::value]]]}}
    ::value])
 
+(def Bindings
+  [:map-of :symbol Value])
+
 (def Env
   [:schema {:registry {::env [:map
                               [:parent   [:maybe [:ref ::env]]]
-                              [:contents [:fn #(instance? clojure.lang.Atom %)]]]}}
+                              [:contents [:fn #(and (instance? clojure.lang.Atom %)
+                                                    (mc/validate Bindings (deref %)))]]]}}
    ::env])

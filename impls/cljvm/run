@@ -1,5 +1,6 @@
 #!/bin/bash
 STEP=${STEP:-stepA_mal}
+echo Main namespace: mal.steps.${STEP//_/-}
 exec bb -f $(dirname $0)/src/mal/steps/${STEP}.clj \
-    -m mal.steps.${STEP/_/-} \
+    -m mal.steps.${STEP//_/-} \
     "${@}"

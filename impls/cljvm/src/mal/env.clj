@@ -3,13 +3,6 @@
    [mal.schema :as ms]
    [mal.util.malli :as mu]))
 
-(mu/defn nest-env :- ms/Env
-  [outer :- [:maybe ms/Env]]
-  {:contents (atom {})
-   :parent   outer})
-
-(def empty-env (nest-env nil))
-
 (mu/defn env-search :- [:or [:= ::not-found] ms/Value]
   [{:keys [parent] :as env}  :- ms/Env
    sym                       :- :symbol
@@ -40,3 +33,26 @@
    value :- ms/Value]
   (swap! (:contents env) assoc sym value)
   env)
+
+(mu/defn nest-env :- ms/Env
+  ([outer :- [:maybe ms/Env]]
+   {:contents (atom {})
+    :parent   outer})
+
+  ([outer :- [:maybe ms/Env]
+    binds :- [:maybe [:sequential :symbol]]
+    exprs :- [:maybe [:sequential ms/Value]]]
+   (let [[bind& bind-tail] (take-last 2 binds)]
+     #_(prn "nest-env" binds bind& bind-tail)
+     (if (= bind& '&)
+       ;; Variadic args
+       (let [fixed     (- (count binds) 2)
+             fixed-env (nest-env outer (take fixed binds) (take fixed exprs))]
+         #_(prn "variadic!" fixed (-> fixed-env :contents deref) bind-tail (drop fixed exprs))
+         (env-set fixed-env bind-tail (or (drop fixed exprs) ())))
+       ;; Just fixed args
+       (reduce (fn [e [b x]] (env-set e b x))
+               (nest-env outer)
+               (map vector binds exprs))))))
+
+(def empty-env (nest-env nil))
