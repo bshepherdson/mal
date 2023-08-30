@@ -1,6 +1,19 @@
 #!/bin/bash
 STEP=${STEP:-stepA_mal}
-echo Main namespace: mal.steps.${STEP//_/-}
-exec bb -f $(dirname $0)/src/mal/steps/${STEP}.clj \
+CLOJURE=$(which clojure)
+BABASHKA=$(which bb)
+
+NAMESPACE=mal.steps.${STEP//_/-}
+
+echo Main namespace: $NAMESPACE
+
+if [ "${CLOJURE}" != "" ]; then
+  echo Using Clojure CLI at $CLOJURE
+  exec ${CLOJURE} -M -m ${NAMESPACE} -- "${@}"
+else
+  echo Using Babashka at $BABASHKA
+  exec ${BABASHKA} -f $(dirname $0)/src/mal/steps/${STEP}.clj \
     -m mal.steps.${STEP//_/-} \
     "${@}"
+fi
+

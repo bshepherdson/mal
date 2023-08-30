@@ -11,6 +11,12 @@
                                 :boolean
                                 :nil
                                 fn?
+                                [:map {:error/message "Mal function"}
+                                 [:mal/type [:= :fn]]
+                                 [:ast [:ref ::value]]
+                                 [:env :any]
+                                 [:params [:sequential :symbol]]
+                                 [:fn fn?]]
                                 [:vector [:ref ::value]]
                                 [:sequential [:ref ::value]]
                                 [:map-of [:ref ::value] [:ref ::value]]]}}

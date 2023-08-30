@@ -11,7 +11,7 @@
     (if (contains? contents sym)
       (get contents sym)
       (if parent
-        (recur parent sym)
+        (recur parent sym not-found)
         (not-found sym)))))
 
 (mu/defn env-find :- ms/Value

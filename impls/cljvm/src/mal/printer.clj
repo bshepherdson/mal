@@ -20,15 +20,46 @@
 
 (def ^:dynamic *print-readably* true)
 
-(mu/defn mal-pr-str :- :string
-  [value :- ms/Value]
+
+(defn- mal-dispatch [x]
   (cond
-    (map? value)    (wrap-seq "{" "}" (mapcat identity value))
-    (vector? value) (wrap-seq "[" "]" value)
-    (list? value)   (wrap-seq "(" ")" value)
-    (string? value) (if *print-readably*
-                      (pr-str value)
-                      value)
-    (nil? value)    "nil"
-    (fn? value)     "#<function>"
-    :else           (str value)))
+    (and (map? x)
+         (:mal/type x)) (:mal/type x)
+    (map? x)            :map
+    (vector? x)         :vector
+    (list? x)           :list
+    (seq? x)            :list
+    (string? x)         :string
+    (nil? x)            :nil
+    (boolean? x)        :bool
+    (fn? x)             :fn
+    (number? x)         :number
+    (symbol? x)         :symbol
+    (keyword? x)        :keyword
+    :else (throw (ex-info (str "mal-dispatch not defined for: " x) {:x x}))))
+
+(defmulti mal-pr-str mal-dispatch)
+
+(defmethod mal-pr-str :default [x]
+  (str x))
+
+(defmethod mal-pr-str :map [x]
+  (wrap-seq "{" "}" (mapcat identity x)))
+
+(defmethod mal-pr-str :vector [x]
+  (wrap-seq "[" "]" x))
+
+(defmethod mal-pr-str :list [x]
+  (wrap-seq "(" ")" x))
+
+(defmethod mal-pr-str :string [x]
+  (if *print-readably*
+    (pr-str x)
+    x))
+
+(defmethod mal-pr-str :nil [_]
+  ;; (str nil) ;=> ""
+  "nil")
+
+(defmethod mal-pr-str :fn [_]
+  "#<function>")
