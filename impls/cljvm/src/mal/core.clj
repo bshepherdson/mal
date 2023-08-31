@@ -51,6 +51,10 @@
 (mal-def '>      >)
 (mal-def '>=     >=)
 
+(mal-def 'cons   cons)
+(mal-def 'concat concat)
+(mal-def 'vec    vec)
+
 (defn- mal-pr-str [& args]
   (binding [printer/*print-readably* true]
     (->> args
