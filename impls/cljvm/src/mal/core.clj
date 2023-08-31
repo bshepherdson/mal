@@ -56,7 +56,52 @@
 (mal-def 'vec    vec)
 (mal-def 'first  first)
 (mal-def 'rest   rest)
-(mal-def 'nth    nth)
+(mal-def 'nth
+         (fn [xs i]
+           (try
+             (nth xs i)
+             (catch IndexOutOfBoundsException _
+               (throw (ex-info "index out of bounds" {:xs xs
+                                                      :i  i
+                                                      :mal/error "index out of bounds"
+                                                      :mal.error/index-out-of-bounds i}))))))
+
+(mal-def 'apply
+         (fn [f & tail]
+           (when (empty? tail)
+             (throw (ex-info "apply requires at least 2 arguments" {})))
+           (let [args (concat (drop-last tail) (last tail))
+                 ff   (if (map? f) (:fn f) f)]
+             (apply ff args))))
+
+(mal-def 'map
+         (fn [f xs]
+           (let [ff (if (map? f) (:fn f) f)]
+             (doall (map ff xs)))))
+
+;; Type predicates
+(mal-def 'map?        map?)
+(mal-def 'nil?        nil?)
+(mal-def 'true?       true?)
+(mal-def 'false?      false?)
+(mal-def 'symbol?     symbol?)
+(mal-def 'vector?     vector?)
+(mal-def 'keyword?    keyword?)
+(mal-def 'sequential? sequential?)
+
+;; Type conversion and construction
+(mal-def 'symbol     symbol)
+(mal-def 'keyword    keyword)
+(mal-def 'vector     vector)
+(mal-def 'hash-map   hash-map)
+
+;; Map functions
+(mal-def 'assoc      assoc)
+(mal-def 'dissoc     dissoc)
+(mal-def 'get        get)
+(mal-def 'contains?  contains?)
+(mal-def 'keys       (fn [m] (or (keys m) ())))
+(mal-def 'vals       (fn [m] (or (vals m) ())))
 
 (defn- mal-pr-str [& args]
   (binding [printer/*print-readably* true]
@@ -103,3 +148,9 @@
                       (:fn f)
                       f)]
              (apply swap! a ff args))))
+
+;; Exceptions
+;; This wraps a Mal value into `{:mal/error ...}` on an `ex-info`.
+(mal-def 'throw
+         (fn [value]
+           (throw (ex-info "(Mal internal throw)" {:mal/error value}))))

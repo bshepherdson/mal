@@ -25,7 +25,8 @@
   (env-search
     env sym
     #(throw (ex-info (str "undefined symbol: " (name %))
-                     {:mal.error/undefined-symbol %}))))
+                     {:mal.error/undefined-symbol %
+                      :mal/error (str "'" % "' not found")}))))
 
 (mu/defn env-set :- ::ms/env
   [env   :- ::ms/env
