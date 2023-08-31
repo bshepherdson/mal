@@ -1,7 +1,7 @@
 (ns mal.printer
   (:require
    [clojure.string :as str]
-   [mal.schema :as ms]
+   [mal.util :as u]
    [mal.util.malli :as mu]))
 
 (defn- spaced [parts]
@@ -27,8 +27,7 @@
          (:mal/type x)) (:mal/type x)
     (map? x)            :map
     (vector? x)         :vector
-    (list? x)           :list
-    (seq? x)            :list
+    (u/listy? x)        :list
     (string? x)         :string
     (nil? x)            :nil
     (boolean? x)        :bool
@@ -36,6 +35,7 @@
     (number? x)         :number
     (symbol? x)         :symbol
     (keyword? x)        :keyword
+    (u/atom? x)         :atom
     :else (throw (ex-info (str "mal-dispatch not defined for: " x) {:x x}))))
 
 (defmulti mal-pr-str mal-dispatch)
@@ -51,6 +51,9 @@
 
 (defmethod mal-pr-str :list [x]
   (wrap-seq "(" ")" x))
+
+(defmethod mal-pr-str :atom [x]
+  (str "(atom " (mal-pr-str @x) ")"))
 
 (defmethod mal-pr-str :string [x]
   (if *print-readably*

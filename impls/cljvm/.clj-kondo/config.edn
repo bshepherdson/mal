@@ -1,3 +1,7 @@
 {:lint-as
- {#_#_mal.core/mal-def  clojure.core/def
-  #_#_mal.core/mal-defn clojure.core/defn}}
+ {mal.util.malli/defn schema.core/defn
+  #_#_mal.util.malli.fn/fn     schema.core/fn
+  #_#_mal.util.malli/defmethod schema.core/defmethod
+  #_#_mal.util.malli/defn      schema.core/defn
+  #_#_mal.util.malli/fn        schema.core/fn}
+ }

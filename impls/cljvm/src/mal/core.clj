@@ -2,7 +2,9 @@
   "Core namespace of built-in functions."
   (:require
    [clojure.string :as str]
-   [mal.printer :as printer]))
+   [mal.printer :as printer]
+   [mal.reader :as reader]
+   [mal.util :as u]))
 
 (def core-ns (atom {}))
 
@@ -16,6 +18,12 @@
   {:style/indent [:form]}
   [sym args & body]
   `(mal-def '~sym (fn ~args ~@body)))
+
+#_(defn- mal-wrapped
+  {:style/indent 1}
+  [sym f]
+  (swap! core-ns assoc sym f)
+  ['mal-wrapped sym])
 
 (defn- mal-def
   {:style/indent 1}
@@ -34,7 +42,7 @@
              (printer/mal-pr-str x))))
 
 (mal-def 'list   list)
-(mal-def 'list?  (fn [x] (or (list? x) (seq? x))))
+(mal-def 'list?  u/listy?)
 (mal-def 'empty? empty?)
 (mal-def 'count  count)
 (mal-def '=      =)
@@ -73,3 +81,18 @@
          (fn [& args]
            (println (apply mal-println- args))
            nil))
+
+(mal-def 'read-string reader/mal-read)
+(mal-def 'slurp       slurp)
+
+;; Atoms
+(mal-def 'atom        atom)
+(mal-def 'atom?       #(instance? clojure.lang.Atom %))
+(mal-def 'deref       deref)
+(mal-def 'reset!      reset!)
+(mal-def 'swap!
+         (fn [a f & args]
+           (let [ff (if (map? f)
+                      (:fn f)
+                      f)]
+             (apply swap! a ff args))))

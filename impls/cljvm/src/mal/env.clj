@@ -3,8 +3,8 @@
    [mal.schema :as ms]
    [mal.util.malli :as mu]))
 
-(mu/defn env-search :- [:or [:= ::not-found] ms/Value]
-  [{:keys [parent] :as env}  :- ms/Env
+(mu/defn env-search :- [:or [:= ::not-found] ::ms/value]
+  [{:keys [parent] :as env}  :- ::ms/env
    sym                       :- :symbol
    not-found                 :- fn?]
   (let [contents @(:contents env)]
@@ -14,41 +14,39 @@
         (recur parent sym not-found)
         (not-found sym)))))
 
-(mu/defn env-find :- ms/Value
-  [env :- ms/Env
+(mu/defn env-find :- ::ms/value
+  [env :- ::ms/env
    sym :- :symbol]
   (env-search env sym (constantly nil)))
 
-(mu/defn env-get :- ms/Value
-  [env :- ms/Env
+(mu/defn env-get :- ::ms/value
+  [env :- ::ms/env
    sym :- :symbol]
   (env-search
     env sym
     #(throw (ex-info (str "undefined symbol: " (name %))
                      {:mal.error/undefined-symbol %}))))
 
-(mu/defn env-set :- ms/Env
-  [env   :- ms/Env
+(mu/defn env-set :- ::ms/env
+  [env   :- ::ms/env
    sym   :- :symbol
-   value :- ms/Value]
+   value :- ::ms/value]
   (swap! (:contents env) assoc sym value)
   env)
 
-(mu/defn nest-env :- ms/Env
-  ([outer :- [:maybe ms/Env]]
+(mu/defn nest-env :- ::ms/env
+  ([outer :- [:maybe ::ms/env]]
    {:contents (atom {})
     :parent   outer})
 
-  ([outer :- [:maybe ms/Env]
+  ([outer :- [:maybe ::ms/env]
     binds :- [:maybe [:sequential :symbol]]
-    exprs :- [:maybe [:sequential ms/Value]]]
+    exprs :- [:maybe [:sequential ::ms/value]]]
    (let [[bind& bind-tail] (take-last 2 binds)]
-     #_(prn "nest-env" binds bind& bind-tail)
      (if (= bind& '&)
        ;; Variadic args
        (let [fixed     (- (count binds) 2)
              fixed-env (nest-env outer (take fixed binds) (take fixed exprs))]
-         #_(prn "variadic!" fixed (-> fixed-env :contents deref) bind-tail (drop fixed exprs))
          (env-set fixed-env bind-tail (or (drop fixed exprs) ())))
        ;; Just fixed args
        (reduce (fn [e [b x]] (env-set e b x))

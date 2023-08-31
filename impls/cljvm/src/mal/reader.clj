@@ -1,9 +1,7 @@
-(ns mal.steps.step1-read-print
-  "Totally cheating and using built-in Clojure structures and Edamame to parse."
+(ns mal.reader
   (:require
    [clojure.walk :as walk]
    [edamame.core :as edamame]
-   [mal.printer :as printer]
    [mal.schema :as ms]
    [mal.util.malli :as mu]))
 
@@ -39,37 +37,3 @@
 (mu/defn mal-read :- ::ms/value
   [input :- :string]
   (edamame/parse-string input edamame-options))
-
-(mu/defn mal-eval :- ::ms/value
-  [ast :- ::ms/value]
-  ast)
-
-(mu/defn mal-print :- :string
-  [value :- ::ms/value]
-  (printer/mal-pr-str value))
-
-(mu/defn rep :- :string
-  [input :- :string]
-  (try
-    (-> input
-        mal-read
-        mal-eval
-        mal-print)
-    (catch Throwable e
-      (let [data (ex-data e)]
-        (cond
-          (:edamame/expected-delimiter data)
-          (str "unexpected EOF, expected " (:edamame/expected-delimiter data))
-
-          :else (str "unknown error: " data))))))
-
-(defn -main []
-  (loop []
-    (print "user> ")
-    (flush)
-    (let [input (read-line)]
-      (if (and input (pos? (count input)))
-        (do
-          (println (rep input))
-          (recur))
-        :eof))))

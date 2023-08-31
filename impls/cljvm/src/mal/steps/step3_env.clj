@@ -44,15 +44,15 @@
    :syntax-quote syntax-quote
    :postprocess  postprocess})
 
-(mu/defn mal-read :- ms/Value
+(mu/defn mal-read :- ::ms/value
   [input :- :string]
   (edamame/parse-string input edamame-options))
 
 (declare mal-eval)
 
-(mu/defn eval-ast :- ms/Value
-  [ast :- ms/Value
-   env :- ms/Env]
+(mu/defn eval-ast :- ::ms/value
+  [ast :- ::ms/value
+   env :- ::ms/env]
   (cond
     (symbol? ast) (env/env-get env ast)
     (list? ast)   (doall (map #(mal-eval % env) ast))
@@ -60,9 +60,9 @@
     (map? ast)    (update-vals ast #(mal-eval % env))
     :else         ast))
 
-(mu/defn mal-eval :- ms/Value
-  [ast :- ms/Value
-   env :- ms/Env]
+(mu/defn mal-eval :- ::ms/value
+  [ast :- ::ms/value
+   env :- ::ms/env]
   (cond
     (and (list? ast)
          (= '() ast))
@@ -87,7 +87,7 @@
     :else (eval-ast ast env)))
 
 (mu/defn mal-print :- :string
-  [value :- ms/Value]
+  [value :- ::ms/value]
   (printer/mal-pr-str value))
 
 (mu/defn rep :- :string
