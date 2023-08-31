@@ -7,7 +7,12 @@
   [{:keys [parent] :as env}  :- ::ms/env
    sym                       :- :symbol
    not-found                 :- fn?]
-  (let [contents @(:contents env)]
+  (let [contents @(:contents env)
+        ;; Strip off clojure.core/ but not any other namespaces.
+        sym      (if (and (qualified-symbol? sym)
+                          (= (namespace sym) "clojure.core"))
+                   (symbol (name sym))
+                   sym)]
     (if (contains? contents sym)
       (get contents sym)
       (if parent

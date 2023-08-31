@@ -52,6 +52,7 @@
 (mal-def '>=     >=)
 
 (mal-def 'cons   cons)
+(mal-def 'conj   conj)
 (mal-def 'concat concat)
 (mal-def 'vec    vec)
 (mal-def 'first  first)
@@ -80,10 +81,16 @@
              (doall (map ff xs)))))
 
 ;; Type predicates
+(mal-def 'fn?         u/fn?)
 (mal-def 'map?        map?)
 (mal-def 'nil?        nil?)
 (mal-def 'true?       true?)
 (mal-def 'false?      false?)
+(mal-def 'macro?      #(boolean (and (map? %)
+                                     (:fn %)
+                                     (:macro? %))))
+(mal-def 'number?     number?)
+(mal-def 'string?     string?)
 (mal-def 'symbol?     symbol?)
 (mal-def 'vector?     vector?)
 (mal-def 'keyword?    keyword?)
@@ -94,6 +101,10 @@
 (mal-def 'keyword    keyword)
 (mal-def 'vector     vector)
 (mal-def 'hash-map   hash-map)
+(mal-def 'seq        (fn [x]
+                       (if (string? x)
+                         (not-empty (map str x))
+                         (seq x))))
 
 ;; Map functions
 (mal-def 'assoc      assoc)
@@ -136,6 +147,10 @@
 
 (mal-def 'read-string reader/mal-read)
 (mal-def 'slurp       slurp)
+(mal-def 'readline    (fn [prompt]
+                        (print prompt)
+                        (flush)
+                        (read-line)))
 
 ;; Atoms
 (mal-def 'atom        atom)
@@ -154,3 +169,10 @@
 (mal-def 'throw
          (fn [value]
            (throw (ex-info "(Mal internal throw)" {:mal/error value}))))
+
+;; Metadata
+(mal-def 'meta      #(-> % meta :mal/meta))
+(mal-def 'with-meta (fn [obj metadata]
+                      (vary-meta obj assoc :mal/meta metadata)))
+
+(mal-def 'time-ms (fn [] (.toEpochMilli (java.time.Instant/now))))

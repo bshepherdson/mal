@@ -8,6 +8,7 @@
 (defn- syntax-quote [form]
   ;; The form already has unquote and unquote-splicing in it.
   ;; Mal wants it to be called splice-unquote, so we can rename that.
+  ;; TODO: That can be renamed to match Clojure once I'm done with Mal tests.
   (letfn [(adjust [x]
             (if (and (symbol? x)
                      (#{'unquote-splicing 'clojure.core/unquote-splicing} x))
@@ -18,15 +19,11 @@
             (walk/postwalk adjust form)
             (adjust form)))))
 
-(defn- postprocess [{:keys [obj loc]}]
-  (letfn [(post [x]
-            (if (and (qualified-symbol? x)
-                     (= (namespace x) "clojure.core"))
-              (symbol (name x))
-              x))]
-    (if (sequential? obj)
-      (walk/postwalk post obj)
-      obj)))
+(defn- postprocess [{:keys [obj _loc]}]
+  (cond-> obj
+    (and (qualified-symbol? obj)
+         (= (namespace obj) "clojure.core")) (-> name symbol)
+    (meta obj)                               (with-meta {:mal/meta (meta obj)})))
 
 (def ^:private edamame-options
   {:deref        true
