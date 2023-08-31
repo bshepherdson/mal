@@ -101,7 +101,7 @@
 (rep "(def! not (fn* (a) (if a false true)))")
 (rep "(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \"\\nnil)\")))))")
 
-(defn -main [& _]
+(defn- repl []
   (loop []
     (print "user> ")
     (flush)
@@ -111,6 +111,12 @@
           (println (rep input))
           (recur))
         :eof))))
+
+(defn -main [& _]
+  (env/env-set repl-env '*ARGV* (rest *command-line-args*))
+  (if-let [script (first *command-line-args*)]
+    (rep (str "(load-file \"" script "\")"))
+    (repl)))
 
 (comment
   (rep "(def! a (atom 7))")
