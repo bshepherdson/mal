@@ -3,6 +3,7 @@
    [clojure.walk :as walk]
    [edamame.core :as edamame]
    [mal.schema :as ms]
+   [mal.util :as u]
    [mal.util.malli :as mu]))
 
 (defn- syntax-quote [form]
@@ -20,10 +21,19 @@
             (adjust form)))))
 
 (defn- postprocess [{:keys [obj _loc]}]
-  (cond-> obj
-    (and (qualified-symbol? obj)
-         (= (namespace obj) "clojure.core")) (-> name symbol)
-    (meta obj)                               (with-meta {:mal/meta (meta obj)})))
+  (let [symbold      (if (and (u/listy? obj)
+                              (qualified-symbol? (first obj))
+                              (= (namespace (first obj))
+                                 "clojure.core"))
+                       (-> obj first name symbol (cons (rest obj)))
+                       obj)
+        splice-fixed (if (and (u/listy? symbold)
+                              (= (first symbold) 'unquote-splicing))
+                       (cons 'splice-unquote (rest symbold))
+                       symbold)]
+    (if (meta obj)
+      (list 'with-meta splice-fixed (meta obj))
+      splice-fixed)))
 
 (def ^:private edamame-options
   {:deref        true

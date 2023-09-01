@@ -205,7 +205,7 @@
 (defn -main [& _]
   (env/env-set repl-env '*ARGV* (rest *command-line-args*))
   (if-let [script (first *command-line-args*)]
+    (rep (str "(load-file \"" script "\")"))
     (do
       (rep (str "(println (str \"Mal [\" *host-language* \"]\"))"))
-      (rep (str "(load-file \"" script "\")")))
-    (repl)))
+      (repl))))
