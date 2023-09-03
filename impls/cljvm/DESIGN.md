@@ -421,7 +421,28 @@ the Lisp runtime, but can be treated identically by the GC. These are grouped
 by bit pattern, allowing the GC to mask out a few bits of the type, and treat
 several types identically.
 
-### 0 - Small integers
+Therefore the four two-pointer types are grouped together (`t = 000011xx`), and
+so are the four opaque-bytes types (`t = 000010xx`).
+
+| Code | Group  | Type |
+| :--  | :--    | :--  |
+| (0)  | --     | Small integer |
+| 1    | --     | Nil |
+| 2    | --     | Boolean |
+| 3    | --     | Vector |
+| 4    | --     | Node |
+| 5-7  | --     | (reserved) |
+| 8    | String-like `10xx` | String |
+| 9    | String-like `10xx` | Symbol |
+| 10   | String-like `10xx` | Keyword |
+| 11   | String-like `10xx` | Compiled code |
+| 12   | 2-cell `11xx` | List |
+| 13   | 2-cell `11xx` | Map |
+| 14   | 2-cell `11xx` | Env |
+| 15   | 2-cell `11xx` | Atom |
+
+
+### Type 0 - Small integers
 
 Small integers are *(b-1)*-bit 2's complement integers. They are stored in the
 upper bits of a cell, leaving the least-significant bit free - it is always 1.
@@ -433,17 +454,94 @@ they are stored into cells rather than pointed to. However since the type code
 0 is reserved (see the Header section) it makes sense to use it for small
 integers, for things like indexing a table of routines by the type code.
 
-### Pointers
+### Type 1 - Nil
 
-Pointers must have 0 in their low bit to distinguish them from integers; so
-values must always be on even addresses. All values identified by pointers
-have a header in their first cell, and must be at least 2 cells in size.
+There's only one `nil` in static space, but it's special, so it gets its own
+code.
 
-### Opaque data
+### Type 2 - Boolean
 
-Some values, like strings, contain arbitrary bytes. These could be mistaken as
-pointers, so the garbage collector must be aware of them while scanning for
-pointers. The size of such an object is rounded up to a whole number of cycles.
+`true` and `false` are static values outside of GC.
+
+### Type 3 - Vector
+
+```
++--------+------+---------+---------+---------+---------+-----+
+| header | size | index 0 | index 1 | index 2 | index 3 | ... |
++--------+------+---------+---------+---------+---------+-----+
+```
+
+Note that `size` is **the number of cells in the whole allocation** - it's not
+the number of elements in the vector. The length of the vector is `size - 2`
+cells. (The GC needs this size much more often than vectors' lengths are
+checked while running Lisp code.)
+
+Note that several internal structures (like activation records) are stored as
+vectors with a specific size.
+
+### Type 4 - Node (in a map)
+
+Fixed size of 5:
+
+```
++--------+--------+--------+--------+--------+
+| header | key    | value  | left   | right  |
++--------+--------+--------+--------+--------+
+```
+
+### Types 8, 9 and 10 - String-likes
+
+From a memory management point of view, all four of these are identical.
+
+```
++--------+--------+---------+------------------------------+
+| header | length | pointer | UTF-8 encoded string data    |
++--------+--------+---------+------------------------------+
+```
+
+The `length` is the number of bytes in the string. The GC has to compute the
+allocation size by adding the size of 3 cells, then round that up to a whole
+cell. Let `2^S = B`, where `B` is the number of bytes in a cell, and `S` is the
+corresponding number of bits. Then `size = (length + 4B - 1) >> S`.
+(On a 32-bit machine, `size = (length + 15) >> 2`;
+on 64-bit `size = (length + 31) >> 3`.)
+
+The `pointer` is for namespaced keywords and symbols. It points to another
+symbol or keyword giving the namespace portion. That is, a keyword like
+`:foo/bar` would be stored as:
+
+```
++--------+--------+---------+----------+
+| header | 3      |    |    | b a r    |
++--------+--------+----|----+----------+
+                       |
+    +------------------+
+    |
++---v----+--------+---------+----------+
+| header | 3      | nil     | f o o    |
++--------+--------+---------+----------+
+```
+
+
+### Type 11 - Compiled code
+
+The `length` is the number of bytecodes; `pointer` holds the literal vector.
+Otherwise these are stored exactly like strings. There's no end marker for
+the code of a function; the compiler will generate a return.
+
+### Types 12 through 15 - Fixed 2-cell values
+
+```
+      +--------+-------+----------+
+List: | header | head  | tail     |
+      +--------+-------+----------+
+Map:  | header | root  | size     |
+      +--------+-------+----------+
+Env:  | header | map   | parent   |
+      +--------+-------+----------+
+Atom: | header | value | watchers |
+      +--------+-------+----------+
+```
 
 
 ## Garbage collection
